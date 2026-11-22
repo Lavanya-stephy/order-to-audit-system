@@ -45,4 +45,11 @@ urlpatterns = [
     path('suppliers/add/', views.SupplierCreateView.as_view(), name='supplier_add'),
     path('suppliers/<int:pk>/edit/', views.SupplierUpdateView.as_view(), name='supplier_edit'),
     path('suppliers/<int:pk>/delete/', views.SupplierDeleteView.as_view(), name='supplier_delete'),
+
+    # Bills of Materials (BOM)
+    path('boms/', views.BOMListView.as_view(), name='bom_list'),
+    path('boms/add/', views.bom_create_view, name='bom_add'),
+    path('boms/<int:pk>/', views.bom_detail_view, name='bom_detail'),
+    path('boms/<int:pk>/edit/', views.bom_update_view, name='bom_edit'),
+    path('boms/<int:pk>/delete/', views.BOMDeleteView.as_view(), name='bom_delete'),
 ]

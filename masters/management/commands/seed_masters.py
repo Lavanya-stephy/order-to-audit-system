@@ -10,6 +10,8 @@ from masters.models import (
     Customer,
     CustomerType,
     Supplier,
+    BillOfMaterial,
+    BOMLine,
 )
 
 
@@ -114,6 +116,47 @@ class Command(BaseCommand):
             }
         )
         self.stdout.write(f"Product: {product}")
+
+        # 5.1 BOM for Murukku 200 g (Section 5 Benchmark)
+        bom, _ = BillOfMaterial.objects.get_or_create(
+            product=product,
+            defaults={
+                'name': 'Murukku 200 g Standard Recipe',
+                'batch_size': Decimal('1.00'),
+                'expected_yield_packets': 200,
+                'notes': 'Benchmark recipe: 1 batch = 200 expected packets (Murukku 200g).',
+            }
+        )
+        bom.expected_yield_packets = 200
+        bom.save()
+
+        # Seed the 5 standard lines from section 5
+        raw_flour = RawMaterial.objects.get(code='RM-FLOUR')
+        raw_oil = RawMaterial.objects.get(code='RM-OIL')
+        raw_spice = RawMaterial.objects.get(code='RM-SPICE')
+        pm_pouch = PackagingItem.objects.get(code='PM-POUCH-200G')
+        pm_carton = PackagingItem.objects.get(code='PM-CARTON-20')
+
+        bom_lines_data = [
+            (raw_flour, None, Decimal('40.0000'), units['kg'], 'Standard batch flour issue'),
+            (raw_oil, None, Decimal('10.0000'), units['litre'], 'Standard batch cooking oil'),
+            (raw_spice, None, Decimal('1.2000'), units['kg'], 'Standard batch spice mix (1200g)'),
+            (None, pm_pouch, Decimal('200.0000'), units['piece'], '1 pouch per packet'),
+            (None, pm_carton, Decimal('10.0000'), units['piece'], '1 carton per 20 packets (10 cartons)'),
+        ]
+        # Clear existing lines to prevent duplicates during re-seeding
+        bom.lines.all().delete()
+        for rm, pm, qty, u, note in bom_lines_data:
+            line = BOMLine.objects.create(
+                bom=bom,
+                raw_material=rm,
+                packaging_item=pm,
+                quantity=qty,
+                unit=u,
+                notes=note
+            )
+            self.stdout.write(f"  -> BOM Line: {line}")
+        self.stdout.write(f"BOM Created: {bom} | Total Std Batch Cost: ₹{bom.total_standard_cost} | Per Packet: ₹{bom.standard_cost_per_packet}")
 
         # 6. Customers
         customers_data = [

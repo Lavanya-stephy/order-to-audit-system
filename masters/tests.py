@@ -1,4 +1,5 @@
 from decimal import Decimal
+from django.core.exceptions import ValidationError
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth import get_user_model
@@ -14,6 +15,8 @@ from masters.models import (
     Customer,
     CustomerType,
     Supplier,
+    BillOfMaterial,
+    BOMLine,
 )
 
 User = get_user_model()
@@ -203,3 +206,183 @@ class MasterCRUDAndPermissionTests(TestCase):
         self.assertTrue(RawMaterial.objects.filter(code='RM-CHILLI').exists())
         rm = RawMaterial.objects.get(code='RM-CHILLI')
         self.assertEqual(rm.standard_cost, Decimal('180.00'))
+
+
+class BenchmarkBOMSection5Tests(TestCase):
+    """
+    Tests loading and validating the exact Section 5 benchmark BOM for Murukku 200 g.
+    Master Data Specification:
+    - 1 batch = 200 packets expected yield
+    - Flour: 40 kg @ ₹42/kg = ₹1,680.00
+    - Cooking oil: 10 L @ ₹140/L = ₹1,400.00
+    - Salt and spice mix: 1.2 kg @ ₹200/kg = ₹240.00
+    - 200 g pouch: 200 pcs @ ₹2.50 = ₹500.00
+    - Carton (holds 20 pkts): 10 pcs @ ₹15 = ₹150.00
+    - Expected Batch Cost: ₹3,970.00
+    - Expected Cost per Packet: ₹19.85
+    """
+    def setUp(self):
+        # Units
+        self.kg = Unit.objects.create(name='Kilogram', symbol='kg', category=UnitCategory.WEIGHT)
+        self.g = Unit.objects.create(name='Gram', symbol='g', category=UnitCategory.WEIGHT, to_base_factor=Decimal('0.001'))
+        self.litre = Unit.objects.create(name='Litre', symbol='litre', category=UnitCategory.VOLUME)
+        self.piece = Unit.objects.create(name='Piece', symbol='piece', category=UnitCategory.COUNT)
+        self.packet = Unit.objects.create(name='Packet', symbol='packet', category=UnitCategory.COUNT)
+
+        # Raw materials
+        self.flour = RawMaterial.objects.create(name='Flour', code='RM-FLOUR', unit=self.kg, standard_cost=Decimal('42.00'))
+        self.oil = RawMaterial.objects.create(name='Cooking oil', code='RM-OIL', unit=self.litre, standard_cost=Decimal('140.00'))
+        self.spice = RawMaterial.objects.create(name='Salt and spice mix', code='RM-SPICE', unit=self.kg, standard_cost=Decimal('200.00'))
+
+        # Packaging items
+        self.pouch = PackagingItem.objects.create(name='200 g pouch', code='PM-POUCH-200G', unit=self.piece, standard_cost=Decimal('2.50'), capacity_packets=1)
+        self.carton = PackagingItem.objects.create(name='Carton (holds 20 packets)', code='PM-CARTON-20', unit=self.piece, standard_cost=Decimal('15.00'), capacity_packets=20)
+
+        # Finished Product
+        self.product = Product.objects.create(
+            name='Murukku 200 g',
+            code='FG-MURUKKU-200G',
+            hsn_code='19059040',
+            pack_size=Decimal('200.00'),
+            pack_size_unit=self.g,
+            unit=self.packet,
+            selling_price=Decimal('50.00'),
+            gst_rate=Decimal('5.00'),
+            carton_pack_qty=20,
+        )
+
+        # Build Section 5 Murukku 200 g BOM
+        self.bom = BillOfMaterial.objects.create(
+            product=self.product,
+            name='Murukku 200 g Standard Recipe',
+            batch_size=Decimal('1.00'),
+            expected_yield_packets=200,
+            notes='Section 5 Benchmark Recipe: 1 batch = 200 packets',
+        )
+
+        # Add 5 benchmark lines
+        self.line_flour = BOMLine.objects.create(bom=self.bom, raw_material=self.flour, quantity=Decimal('40.0000'), unit=self.kg)
+        self.line_oil = BOMLine.objects.create(bom=self.bom, raw_material=self.oil, quantity=Decimal('10.0000'), unit=self.litre)
+        self.line_spice = BOMLine.objects.create(bom=self.bom, raw_material=self.spice, quantity=Decimal('1.2000'), unit=self.kg)
+        self.line_pouch = BOMLine.objects.create(bom=self.bom, packaging_item=self.pouch, quantity=Decimal('200.0000'), unit=self.piece)
+        self.line_carton = BOMLine.objects.create(bom=self.bom, packaging_item=self.carton, quantity=Decimal('10.0000'), unit=self.piece)
+
+    def test_benchmark_bom_structure(self):
+        """Verify the Murukku 200 g BOM line counts and expected yield."""
+        self.assertEqual(self.bom.expected_yield_packets, 200)
+        self.assertEqual(self.bom.lines.count(), 5)
+        self.assertEqual(self.bom.raw_material_lines.count(), 3)
+        self.assertEqual(self.bom.packaging_lines.count(), 2)
+
+    def test_benchmark_line_quantities_and_costs(self):
+        """Verify each benchmark line item quantity, unit, and computed line cost."""
+        # Flour: 40 kg @ ₹42 = ₹1680.00
+        self.assertEqual(self.line_flour.quantity, Decimal('40.0000'))
+        self.assertEqual(self.line_flour.unit, self.kg)
+        self.assertEqual(self.line_flour.line_cost, Decimal('1680.00'))
+
+        # Cooking oil: 10 L @ ₹140 = ₹1400.00
+        self.assertEqual(self.line_oil.quantity, Decimal('10.0000'))
+        self.assertEqual(self.line_oil.unit, self.litre)
+        self.assertEqual(self.line_oil.line_cost, Decimal('1400.00'))
+
+        # Spice mix: 1.2 kg @ ₹200 = ₹240.00
+        self.assertEqual(self.line_spice.quantity, Decimal('1.2000'))
+        self.assertEqual(self.line_spice.unit, self.kg)
+        self.assertEqual(self.line_spice.line_cost, Decimal('240.00'))
+
+        # 200 g pouch: 200 pcs @ ₹2.50 = ₹500.00
+        self.assertEqual(self.line_pouch.quantity, Decimal('200.0000'))
+        self.assertEqual(self.line_pouch.unit, self.piece)
+        self.assertEqual(self.line_pouch.line_cost, Decimal('500.00'))
+
+        # Carton: 10 pcs @ ₹15 = ₹150.00
+        self.assertEqual(self.line_carton.quantity, Decimal('10.0000'))
+        self.assertEqual(self.line_carton.unit, self.piece)
+        self.assertEqual(self.line_carton.line_cost, Decimal('150.00'))
+
+    def test_benchmark_batch_cost_and_cost_per_packet(self):
+        """Verify total batch cost and standard cost per packet calculation."""
+        # Total Raw Materials: 1680 + 1400 + 240 = ₹3,320.00
+        self.assertEqual(self.bom.total_raw_material_cost, Decimal('3320.00'))
+
+        # Total Packaging: 500 + 150 = ₹650.00
+        self.assertEqual(self.bom.total_packaging_cost, Decimal('650.00'))
+
+        # Total Batch Cost: 3320 + 650 = ₹3,970.00
+        self.assertEqual(self.bom.total_standard_cost, Decimal('3970.00'))
+
+        # Cost per Packet (for 200 pkts): 3970 / 200 = ₹19.85
+        self.assertEqual(self.bom.standard_cost_per_packet, Decimal('19.85'))
+
+    def test_bom_line_validation_rules(self):
+        """A line cannot specify both or neither item type, and quantity must be positive."""
+        # Line with neither
+        line_empty = BOMLine(bom=self.bom, quantity=Decimal('5'), unit=self.kg)
+        with self.assertRaises(ValidationError):
+            line_empty.clean()
+
+        # Line with both
+        line_both = BOMLine(bom=self.bom, raw_material=self.flour, packaging_item=self.pouch, quantity=Decimal('5'), unit=self.kg)
+        with self.assertRaises(ValidationError):
+            line_both.clean()
+
+        # Line with zero or negative quantity
+        line_zero = BOMLine(bom=self.bom, raw_material=self.flour, quantity=Decimal('0'), unit=self.kg)
+        with self.assertRaises(ValidationError):
+            line_zero.clean()
+
+
+class BOMScreenTests(TestCase):
+    def setUp(self):
+        self.password = 'Pass123!@#'
+        self.admin = User.objects.create_user(username='admin_bom', password=self.password, role=Role.ADMIN)
+        self.accountant = User.objects.create_user(username='acct_bom', password=self.password, role=Role.ACCOUNTANT)
+        self.salesman = User.objects.create_user(username='sales_bom', password=self.password, role=Role.SALESMAN)
+
+        self.kg = Unit.objects.create(name='Kilogram', symbol='kg', category=UnitCategory.WEIGHT)
+        self.packet = Unit.objects.create(name='Packet', symbol='packet', category=UnitCategory.COUNT)
+        self.g = Unit.objects.create(name='Gram', symbol='g', category=UnitCategory.WEIGHT)
+
+        self.product = Product.objects.create(
+            name='Mixture 250 g',
+            code='FG-MIXTURE-250G',
+            hsn_code='19059040',
+            pack_size=Decimal('250.00'),
+            pack_size_unit=self.g,
+            unit=self.packet,
+            selling_price=Decimal('60.00'),
+            gst_rate=Decimal('5.00'),
+        )
+
+        self.bom = BillOfMaterial.objects.create(
+            product=self.product,
+            expected_yield_packets=100,
+        )
+
+    def test_bom_screens_access_permissions(self):
+        """Admin can view and access create/edit BOM; Salesman is denied; Accountant is read-only."""
+        client = Client()
+
+        # Salesman denied
+        client.login(username=self.salesman.username, password=self.password)
+        res = client.get(reverse('masters:bom_list'))
+        self.assertEqual(res.status_code, 403)
+
+        # Admin allowed to view list and detail
+        client.login(username=self.admin.username, password=self.password)
+        res = client.get(reverse('masters:bom_list'))
+        self.assertEqual(res.status_code, 200)
+
+        res = client.get(reverse('masters:bom_detail', kwargs={'pk': self.bom.pk}))
+        self.assertEqual(res.status_code, 200)
+
+        # Accountant can view list and detail (read-only)
+        client.login(username=self.accountant.username, password=self.password)
+        res = client.get(reverse('masters:bom_list'))
+        self.assertEqual(res.status_code, 200)
+
+        # Accountant denied on edit
+        res = client.get(reverse('masters:bom_edit', kwargs={'pk': self.bom.pk}))
+        self.assertEqual(res.status_code, 403)
+

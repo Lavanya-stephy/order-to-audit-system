@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - Order-to-Audit{% endblock %}
+
+{% block extra_head %}
+<style>
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 0.35rem;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.6rem 0.8rem;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 0.95rem;
+    }
+    .form-control-sm {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.85rem;
+    }
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary-light);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+    .line-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+        margin-top: 0.75rem;
+    }
+    .line-table th, .line-table td {
+        padding: 0.5rem 0.6rem;
+        border: 1px solid var(--border);
+    }
+    .line-table th {
+        background-color: #f8fafc;
+        font-weight: 600;
+        text-align: left;
+    }
+    .field-error {
+        color: var(--danger);
+        font-size: 0.8rem;
+        margin-top: 0.2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 1100px; margin: 1rem auto;">
+    <h2 style="font-size:1.35rem; margin-bottom:1.25rem; border-bottom:1px solid var(--border); padding-bottom:0.75rem;">
+        {{ title }}
+    </h2>
+
+    {% if form.non_field_errors %}
+        <div style="background:#fee2e2; border:1px solid #fca5a5; color:var(--danger); padding:0.75rem; border-radius:6px; margin-bottom:1.25rem; font-size:0.875rem;">
+            {{ form.non_field_errors }}
+        </div>
+    {% endif %}
+
+    {% if formset.non_form_errors %}
+        <div style="background:#fee2e2; border:1px solid #fca5a5; color:var(--danger); padding:0.75rem; border-radius:6px; margin-bottom:1.25rem; font-size:0.875rem;">
+            {{ formset.non_form_errors }}
+        </div>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:1.25rem; margin-bottom:1.5rem;">
+            <div class="form-group">
+                <label for="{{ form.product.id_for_label }}">Finished Product *</label>
+                {{ form.product }}
+                {% if form.product.errors %}<div class="field-error">{{ form.product.errors }}</div>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.expected_yield_packets.id_for_label }}">Expected Yield (Packets per Batch) *</label>
+                {{ form.expected_yield_packets }}
+                {% if form.expected_yield_packets.errors %}<div class="field-error">{{ form.expected_yield_packets.errors }}</div>{% endif %}
+            </div>
+
+            <div class="form-group" style="grid-column: 1 / -1;">
+                <label for="{{ form.notes.id_for_label }}">Recipe Instructions / Notes</label>
+                {{ form.notes }}
+                {% if form.notes.errors %}<div class="field-error">{{ form.notes.errors }}</div>{% endif %}
+            </div>
+
+            <div class="form-group" style="display:flex; align-items:center; gap:0.5rem;">
+                {{ form.is_active }}
+                <label for="{{ form.is_active.id_for_label }}" style="margin:0; font-weight:normal;">Active Recipe</label>
+            </div>
+        </div>
+
+        <div style="border-top:1px solid var(--border); padding-top:1.25rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; margin-bottom:0.5rem;">
+                <div>
+                    <h3 style="font-size:1.1rem; color:var(--text-dark);">Recipe Line Items (Ingredients & Packaging)</h3>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.2rem;">
+                        💡 For each line, select <strong>either</strong> a Raw Material (flour, oil, spices) <strong>or</strong> a Packaging Item (pouch, carton). Specify the required quantity and unit.
+                    </p>
+                </div>
+            </div>
+
+            {{ formset.management_form }}
+
+            <div style="overflow-x:auto;">
+                <table class="line-table">
+                    <thead>
+                        <tr>
+                            <th style="width:25%;">Raw Material</th>
+                            <th style="width:25%;">Packaging Item</th>
+                            <th style="width:15%;">Quantity per Batch</th>
+                            <th style="width:15%;">Unit</th>
+                            <th style="width:15%;">Notes</th>
+                            {% if formset.can_delete %}
+                                <th style="width:5%; text-align:center;">Delete?</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for line_form in formset %}
+                            <tr>
+                                <td>
+                                    {{ line_form.id }}
+                                    {{ line_form.raw_material }}
+                                    {% if line_form.raw_material.errors %}
+                                        <div class="field-error">{{ line_form.raw_material.errors }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ line_form.packaging_item }}
+                                    {% if line_form.packaging_item.errors %}
+                                        <div class="field-error">{{ line_form.packaging_item.errors }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ line_form.quantity }}
+                                    {% if line_form.quantity.errors %}
+                                        <div class="field-error">{{ line_form.quantity.errors }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ line_form.unit }}
+                                    {% if line_form.unit.errors %}
+                                        <div class="field-error">{{ line_form.unit.errors }}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ line_form.notes }}
+                                    {% if line_form.notes.errors %}
+                                        <div class="field-error">{{ line_form.notes.errors }}</div>
+                                    {% endif %}
+                                </td>
+                                {% if formset.can_delete %}
+                                    <td style="text-align:center;">
+                                        {{ line_form.DELETE }}
+                                    </td>
+                                {% endif %}
+                            </tr>
+                            {% if line_form.non_field_errors %}
+                                <tr>
+                                    <td colspan="6" style="background:#fee2e2; color:var(--danger); font-size:0.8rem;">
+                                        {{ line_form.non_field_errors }}
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2rem; border-top:1px solid var(--border); padding-top:1rem;">
+            <a href="{{ back_url|default:'..' }}" style="color:var(--text-muted); text-decoration:none; font-size:0.9rem;">
+                &larr; Cancel
+            </a>
+            <button type="submit" style="background:var(--primary); color:#ffffff; border:none; padding:0.65rem 1.6rem; border-radius:6px; font-weight:600; cursor:pointer; font-size:0.95rem;">
+                Save BOM Recipe
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -7,6 +7,8 @@ from .models import (
     Product,
     Customer,
     Supplier,
+    BillOfMaterial,
+    BOMLine,
 )
 
 
@@ -83,3 +85,17 @@ class SupplierAdmin(admin.ModelAdmin):
     list_display = ('name', 'contact_person', 'phone', 'city', 'state', 'state_code', 'is_active')
     list_filter = ('state', 'is_active')
     search_fields = ('name', 'contact_person', 'phone', 'city', 'gstin')
+
+
+class BOMLineInline(admin.TabularInline):
+    model = BOMLine
+    extra = 2
+    fields = ('raw_material', 'packaging_item', 'quantity', 'unit', 'notes')
+
+
+@admin.register(BillOfMaterial)
+class BillOfMaterialAdmin(admin.ModelAdmin):
+    list_display = ('product', 'expected_yield_packets', 'total_standard_cost', 'standard_cost_per_packet', 'is_active')
+    list_filter = ('is_active',)
+    search_fields = ('product__name', 'name')
+    inlines = [BOMLineInline]

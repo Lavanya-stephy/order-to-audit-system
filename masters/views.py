@@ -1,3 +1,5 @@
+from decimal import Decimal
+from django.db import transaction
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy, reverse
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
@@ -15,6 +17,8 @@ from .models import (
     Product,
     Customer,
     Supplier,
+    BillOfMaterial,
+    BOMLine,
 )
 from .forms import (
     UnitForm,
@@ -24,6 +28,8 @@ from .forms import (
     ProductForm,
     CustomerForm,
     SupplierForm,
+    BillOfMaterialForm,
+    BOMLineFormSet,
 )
 
 MASTER_MANAGERS = [Role.ADMIN, Role.PRODUCTION, Role.OWNER]
@@ -42,6 +48,7 @@ def masters_hub(request):
         'products_count': Product.objects.count(),
         'customers_count': Customer.objects.count(),
         'suppliers_count': Supplier.objects.count(),
+        'boms_count': BillOfMaterial.objects.count(),
         'can_edit': request.user.role in MASTER_MANAGERS or request.user.is_superuser,
     }
     return render(request, 'masters/hub.html', context)
@@ -453,4 +460,118 @@ class SupplierDeleteView(DeleteView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['back_url'] = reverse('masters:supplier_list')
+        return context
+
+
+# ==========================================
+# Bill of Materials (BOM) Views
+# ==========================================
+@method_decorator(role_required(MASTER_VIEWERS), name='dispatch')
+class BOMListView(ListView):
+    model = BillOfMaterial
+    template_name = 'masters/bom_list.html'
+    context_object_name = 'boms'
+
+    def get_queryset(self):
+        return BillOfMaterial.objects.select_related('product', 'product__unit').prefetch_related('lines').all()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['can_edit'] = self.request.user.role in MASTER_MANAGERS or self.request.user.is_superuser
+        return context
+
+
+@login_required
+@role_required(MASTER_VIEWERS)
+def bom_detail_view(request, pk):
+    """Detailed recipe view with line item costs and standard margin breakdown."""
+    bom = get_object_or_404(
+        BillOfMaterial.objects.select_related('product', 'product__pack_size_unit', 'product__unit'),
+        pk=pk
+    )
+    raw_lines = bom.raw_material_lines
+    pkg_lines = bom.packaging_lines
+    can_edit = request.user.role in MASTER_MANAGERS or request.user.is_superuser
+
+    # Calculate estimated margin
+    selling_price = bom.product.selling_price
+    cost_per_pkt = bom.standard_cost_per_packet
+    gross_margin_per_pkt = selling_price - cost_per_pkt
+    margin_percent = ((gross_margin_per_pkt / selling_price) * Decimal('100')).quantize(Decimal('0.1')) if selling_price > 0 else Decimal('0.0')
+
+    context = {
+        'bom': bom,
+        'raw_lines': raw_lines,
+        'pkg_lines': pkg_lines,
+        'can_edit': can_edit,
+        'selling_price': selling_price,
+        'cost_per_pkt': cost_per_pkt,
+        'gross_margin_per_pkt': gross_margin_per_pkt,
+        'margin_percent': margin_percent,
+    }
+    return render(request, 'masters/bom_detail.html', context)
+
+
+@login_required
+@role_required(MASTER_MANAGERS)
+def bom_create_view(request):
+    """Create a new BOM with multiple line items."""
+    if request.method == 'POST':
+        form = BillOfMaterialForm(request.POST)
+        formset = BOMLineFormSet(request.POST)
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                bom = form.save()
+                formset.instance = bom
+                formset.save()
+            messages.success(request, f"BOM for '{bom.product.name}' created successfully.")
+            return redirect('masters:bom_detail', pk=bom.pk)
+    else:
+        form = BillOfMaterialForm()
+        formset = BOMLineFormSet()
+
+    return render(request, 'masters/bom_form.html', {
+        'form': form,
+        'formset': formset,
+        'title': 'Create Bill of Materials (BOM)',
+        'back_url': reverse('masters:bom_list'),
+    })
+
+
+@login_required
+@role_required(MASTER_MANAGERS)
+def bom_update_view(request, pk):
+    """Edit an existing BOM and its recipe line items."""
+    bom = get_object_or_404(BillOfMaterial, pk=pk)
+    if request.method == 'POST':
+        form = BillOfMaterialForm(request.POST, instance=bom)
+        formset = BOMLineFormSet(request.POST, instance=bom)
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                bom = form.save()
+                formset.save()
+            messages.success(request, f"BOM for '{bom.product.name}' updated successfully.")
+            return redirect('masters:bom_detail', pk=bom.pk)
+    else:
+        form = BillOfMaterialForm(instance=bom)
+        formset = BOMLineFormSet(instance=bom)
+
+    return render(request, 'masters/bom_form.html', {
+        'form': form,
+        'formset': formset,
+        'bom': bom,
+        'title': f"Edit BOM: {bom.product.name}",
+        'back_url': reverse('masters:bom_detail', pk=bom.pk),
+    })
+
+
+@method_decorator(role_required(MASTER_MANAGERS), name='dispatch')
+class BOMDeleteView(DeleteView):
+    model = BillOfMaterial
+    template_name = 'masters/confirm_delete.html'
+    success_url = reverse_lazy('masters:bom_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['back_url'] = reverse('masters:bom_list')
         return context

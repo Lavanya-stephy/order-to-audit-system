@@ -7,7 +7,10 @@ from .models import (
     Product,
     Customer,
     Supplier,
+    BillOfMaterial,
+    BOMLine,
 )
+from django.forms import inlineformset_factory
 
 FORM_CONTROL_ATTRS = {'class': 'form-control'}
 
@@ -158,3 +161,37 @@ class SupplierForm(forms.ModelForm):
             'gstin': forms.TextInput(attrs={'class': 'form-control'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
+
+
+class BillOfMaterialForm(forms.ModelForm):
+    class Meta:
+        model = BillOfMaterial
+        fields = ['product', 'expected_yield_packets', 'notes', 'is_active']
+        widgets = {
+            'product': forms.Select(attrs={'class': 'form-control'}),
+            'expected_yield_packets': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'e.g. 200'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Recipe notes, batch instructions...'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class BOMLineForm(forms.ModelForm):
+    class Meta:
+        model = BOMLine
+        fields = ['raw_material', 'packaging_item', 'quantity', 'unit', 'notes']
+        widgets = {
+            'raw_material': forms.Select(attrs={'class': 'form-control form-control-sm'}),
+            'packaging_item': forms.Select(attrs={'class': 'form-control form-control-sm'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control form-control-sm', 'step': '0.0001'}),
+            'unit': forms.Select(attrs={'class': 'form-control form-control-sm'}),
+            'notes': forms.TextInput(attrs={'class': 'form-control form-control-sm', 'placeholder': 'Notes'}),
+        }
+
+
+BOMLineFormSet = inlineformset_factory(
+    BillOfMaterial,
+    BOMLine,
+    form=BOMLineForm,
+    extra=4,
+    can_delete=True
+)

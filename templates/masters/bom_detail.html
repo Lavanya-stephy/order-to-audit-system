@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+
+{% block title %}BOM: {{ bom.product.name }} - Order-to-Audit{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div>
+            <h2>📖 {{ bom.product.name }} — Recipe (BOM)</h2>
+            <p style="color:var(--text-muted); font-size:0.9rem;">
+                Standard batch formula for <strong>{{ bom.product.pack_size }} {{ bom.product.pack_size_unit.symbol }}</strong> packs &bull; HSN: {{ bom.product.hsn_code }}
+            </p>
+        </div>
+        <div style="display:flex; gap:0.5rem;">
+            <a href="{% url 'masters:bom_list' %}" style="display:inline-block; background:#e2e8f0; color:#334155; padding:0.4rem 0.8rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                &larr; All BOMs
+            </a>
+            {% if can_edit %}
+                <a href="{% url 'masters:bom_edit' bom.pk %}" style="display:inline-block; background:var(--primary); color:#ffffff; padding:0.4rem 0.8rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                    ✏️ Edit Recipe
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+    <div class="feature-card" style="border-left-color: #2563eb;">
+        <span style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Expected Yield</span>
+        <h3 style="font-size:1.5rem; margin-top:0.25rem;">{{ bom.expected_yield_packets }} <span style="font-size:0.9rem; font-weight:normal; color:var(--text-muted);">packets</span></h3>
+        <p style="font-size:0.75rem; color:var(--text-muted);">Standard batch output target</p>
+    </div>
+
+    <div class="feature-card" style="border-left-color: #d97706;">
+        <span style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Raw Material Cost</span>
+        <h3 style="font-size:1.5rem; margin-top:0.25rem;">₹{{ bom.total_raw_material_cost }}</h3>
+        <p style="font-size:0.75rem; color:var(--text-muted);">Flour, oil, spice blend</p>
+    </div>
+
+    <div class="feature-card" style="border-left-color: #8b5cf6;">
+        <span style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Packaging Cost</span>
+        <h3 style="font-size:1.5rem; margin-top:0.25rem;">₹{{ bom.total_packaging_cost }}</h3>
+        <p style="font-size:0.75rem; color:var(--text-muted);">Pouches and outer cartons</p>
+    </div>
+
+    <div class="feature-card" style="border-left-color: #10b981;">
+        <span style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Std Cost / Packet</span>
+        <h3 style="font-size:1.5rem; margin-top:0.25rem; color:var(--primary);">₹{{ cost_per_pkt }}</h3>
+        <p style="font-size:0.75rem; color:var(--text-muted);">Batch Total: ₹{{ bom.total_standard_cost }}</p>
+    </div>
+
+    <div class="feature-card" style="border-left-color: #059669;">
+        <span style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Selling Price & Margin</span>
+        <h3 style="font-size:1.5rem; margin-top:0.25rem; color:var(--success);">₹{{ selling_price }}</h3>
+        <p style="font-size:0.75rem; color:var(--text-muted);">Gross Margin: ₹{{ gross_margin_per_pkt }} ({{ margin_percent }}%)</p>
+    </div>
+</div>
+
+<div class="card" style="margin-top:1.5rem;">
+    <h3 style="font-size:1.15rem; margin-bottom:0.75rem; color:var(--text-dark);">
+        🌾 Raw Material Formula (per {{ bom.expected_yield_packets }} packet batch)
+    </h3>
+    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+        <thead>
+            <tr style="background:#f8fafc; border-bottom:2px solid var(--border); text-align:left;">
+                <th style="padding:0.6rem 0.8rem;">Ingredient</th>
+                <th style="padding:0.6rem 0.8rem;">SKU Code</th>
+                <th style="padding:0.6rem 0.8rem;">Quantity per Batch</th>
+                <th style="padding:0.6rem 0.8rem;">Standard Rate</th>
+                <th style="padding:0.6rem 0.8rem; text-align:right;">Subtotal Cost</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for line in raw_lines %}
+                <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:0.6rem 0.8rem; font-weight:600;">{{ line.raw_material.name }}</td>
+                    <td style="padding:0.6rem 0.8rem; font-family:monospace;">{{ line.raw_material.code }}</td>
+                    <td style="padding:0.6rem 0.8rem; font-weight:600;">{{ line.quantity }} {{ line.unit.symbol }}</td>
+                    <td style="padding:0.6rem 0.8rem;">₹{{ line.raw_material.standard_cost }} / {{ line.raw_material.unit.symbol }}</td>
+                    <td style="padding:0.6rem 0.8rem; text-align:right; font-weight:600;">₹{{ line.line_cost }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="5" style="padding:1rem; text-align:center; color:var(--text-muted);">
+                        No raw material lines added to this recipe.
+                    </td>
+                </tr>
+            {% endfor %}
+            <tr style="background:#f1f5f9; font-weight:700;">
+                <td colspan="4" style="padding:0.6rem 0.8rem; text-align:right;">Total Raw Material Cost:</td>
+                <td style="padding:0.6rem 0.8rem; text-align:right; color:var(--primary);">₹{{ bom.total_raw_material_cost }}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card" style="margin-top:1.5rem;">
+    <h3 style="font-size:1.15rem; margin-bottom:0.75rem; color:var(--text-dark);">
+        📦 Packaging Requirements (per {{ bom.expected_yield_packets }} packet batch)
+    </h3>
+    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+        <thead>
+            <tr style="background:#f8fafc; border-bottom:2px solid var(--border); text-align:left;">
+                <th style="padding:0.6rem 0.8rem;">Packaging Item</th>
+                <th style="padding:0.6rem 0.8rem;">SKU Code</th>
+                <th style="padding:0.6rem 0.8rem;">Quantity per Batch</th>
+                <th style="padding:0.6rem 0.8rem;">Unit Cost</th>
+                <th style="padding:0.6rem 0.8rem; text-align:right;">Subtotal Cost</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for line in pkg_lines %}
+                <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:0.6rem 0.8rem; font-weight:600;">{{ line.packaging_item.name }}</td>
+                    <td style="padding:0.6rem 0.8rem; font-family:monospace;">{{ line.packaging_item.code }}</td>
+                    <td style="padding:0.6rem 0.8rem; font-weight:600;">{{ line.quantity }} {{ line.unit.symbol }}</td>
+                    <td style="padding:0.6rem 0.8rem;">₹{{ line.packaging_item.standard_cost }} / {{ line.packaging_item.unit.symbol }}</td>
+                    <td style="padding:0.6rem 0.8rem; text-align:right; font-weight:600;">₹{{ line.line_cost }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="5" style="padding:1rem; text-align:center; color:var(--text-muted);">
+                        No packaging items added to this recipe.
+                    </td>
+                </tr>
+            {% endfor %}
+            <tr style="background:#f1f5f9; font-weight:700;">
+                <td colspan="4" style="padding:0.6rem 0.8rem; text-align:right;">Total Packaging Cost:</td>
+                <td style="padding:0.6rem 0.8rem; text-align:right; color:var(--primary);">₹{{ bom.total_packaging_cost }}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -95,7 +95,12 @@ Following Section 6 of `PROBLEM.md`, development will be executed in staged phas
   - Finished Goods (`Product`): Pack size, HSN codes (e.g. 19059040), pre-tax selling price (₹50.00), GST rate (5.00%), carton packet capacities.
   - Customer & Supplier masters (`Customer`, `Supplier`): Retailer vs Distributor channel, GSTIN, State code (`is_interstate()` logic).
   - Web CRUD interfaces and Django Admin registrations with role permissions.
-- [ ] Bill of Materials (`BOM` & `BOMItem`): Standard input quantities and expected output per batch.
+- [x] Bill of Materials (`BillOfMaterial` & `BOMLine`):
+  - Standard recipe formulas per finished product with expected yield in packets per batch.
+  - Line items supporting either Raw Materials (flour, oil, spices) or Packaging Items (pouches, cartons).
+  - Dynamic standard costing (`total_standard_cost`, `standard_cost_per_packet`, gross margins).
+  - Web screens to create, edit, view, and delete BOMs with multi-line formsets.
+  - Benchmark Murukku 200g BOM (40 kg flour, 10 L oil, 1.2 kg spices, 200 pouches, 10 cartons; 200 pkts yield; ₹19.85/pkt cost).
 
 ### Phase 2: Inventory Ledger & Production Loop (Highest Evaluation Weight)
 - [ ] `StockMovement` append-only ledger model with document linkage (GenericForeignKey or explicit FKs).

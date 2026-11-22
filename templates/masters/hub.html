@@ -64,6 +64,17 @@
 
     <div class="feature-card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+            <h3>📋 Bills of Materials (BOM)</h3>
+            <span class="badge" style="background:#ffedd5; color:#c2410c;">{{ boms_count }} recipes</span>
+        </div>
+        <p>Standard batch recipes: raw material formulas, packaging items, and expected yield in packets per batch.</p>
+        <div style="margin-top:1rem;">
+            <a href="{% url 'masters:bom_list' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.9rem;">View & Manage &rarr;</a>
+        </div>
+    </div>
+
+    <div class="feature-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
             <h3>🏪 Customers (Channels)</h3>
             <span class="badge" style="background:#fce7f3; color:#9d174d;">{{ customers_count }} accounts</span>
         </div>

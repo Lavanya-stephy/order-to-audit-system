@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block title %}Bills of Materials (BOM) - Order-to-Audit{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div>
+            <h2>📋 Bills of Materials (BOM)</h2>
+            <p style="color:var(--text-muted); font-size:0.9rem;">
+                Standard batch recipes: raw material formulas, packaging requirements, and expected yield in packets per batch.
+            </p>
+        </div>
+        <div style="display:flex; gap:0.5rem;">
+            <a href="{% url 'masters:hub' %}" style="display:inline-block; background:#e2e8f0; color:#334155; padding:0.4rem 0.8rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                &larr; Hub
+            </a>
+            {% if can_edit %}
+                <a href="{% url 'masters:bom_add' %}" style="display:inline-block; background:var(--primary); color:#ffffff; padding:0.4rem 0.8rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                    + Create BOM Recipe
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <table style="width:100%; border-collapse:collapse; margin-top:1.25rem; font-size:0.9rem;">
+        <thead>
+            <tr style="background:#f8fafc; border-bottom:2px solid var(--border); text-align:left;">
+                <th style="padding:0.6rem 0.8rem;">Finished Product</th>
+                <th style="padding:0.6rem 0.8rem;">Expected Yield</th>
+                <th style="padding:0.6rem 0.8rem;">Lines</th>
+                <th style="padding:0.6rem 0.8rem;">Std Batch Cost</th>
+                <th style="padding:0.6rem 0.8rem;">Std Cost / Pkt</th>
+                <th style="padding:0.6rem 0.8rem;">Selling Price</th>
+                <th style="padding:0.6rem 0.8rem; text-align:right;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in boms %}
+                <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:0.6rem 0.8rem; font-weight:600;">
+                        <a href="{% url 'masters:bom_detail' item.pk %}" style="color:var(--primary); text-decoration:none;">
+                            {{ item.product.name }}
+                        </a>
+                    </td>
+                    <td style="padding:0.6rem 0.8rem;">
+                        <span class="badge" style="background:#dbeafe; color:#1e40af;">
+                            {{ item.expected_yield_packets }} packets / batch
+                        </span>
+                    </td>
+                    <td style="padding:0.6rem 0.8rem;">{{ item.lines.count }} items</td>
+                    <td style="padding:0.6rem 0.8rem; font-weight:600;">₹{{ item.total_standard_cost }}</td>
+                    <td style="padding:0.6rem 0.8rem; font-weight:600; color:var(--primary);">₹{{ item.standard_cost_per_packet }}</td>
+                    <td style="padding:0.6rem 0.8rem;">₹{{ item.product.selling_price }}</td>
+                    <td style="padding:0.6rem 0.8rem; text-align:right;">
+                        <a href="{% url 'masters:bom_detail' item.pk %}" style="color:#0369a1; text-decoration:none; font-weight:600; margin-right:0.6rem;">View Recipe</a>
+                        {% if can_edit %}
+                            <a href="{% url 'masters:bom_edit' item.pk %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; margin-right:0.6rem;">Edit</a>
+                            <a href="{% url 'masters:bom_delete' item.pk %}" style="color:var(--danger); text-decoration:none; font-weight:600;">Delete</a>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="7" style="padding:1.5rem; text-align:center; color:var(--text-muted);">
+                        No BOM recipes defined yet. Click "+ Create BOM Recipe" to add the standard recipe.
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

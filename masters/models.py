@@ -311,3 +311,154 @@ class Supplier(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.city or self.state})"
+
+
+class BillOfMaterial(models.Model):
+    product = models.OneToOneField(
+        Product,
+        on_delete=models.CASCADE,
+        related_name='bom',
+        help_text="Finished product this BOM recipe is for"
+    )
+    name = models.CharField(
+        max_length=150,
+        blank=True,
+        help_text="Recipe / BOM name (e.g. Standard Murukku 200g Batch)"
+    )
+    batch_size = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('1.00'),
+        help_text="Standard batch multiplier (typically 1.00)"
+    )
+    expected_yield_packets = models.PositiveIntegerField(
+        default=200,
+        help_text="Standard expected output in finished packets per batch (e.g. 200)"
+    )
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['product__name']
+        verbose_name = 'Bill of Materials'
+        verbose_name_plural = 'Bills of Materials'
+
+    def __str__(self):
+        return f"BOM: {self.product.name} (Yield: {self.expected_yield_packets} pkts)"
+
+    def save(self, *args, **kwargs):
+        if not self.name:
+            self.name = f"{self.product.name} Recipe (Standard Batch)"
+        super().save(*args, **kwargs)
+
+    @property
+    def raw_material_lines(self):
+        return self.lines.filter(raw_material__isnull=False).select_related('raw_material', 'unit')
+
+    @property
+    def packaging_lines(self):
+        return self.lines.filter(packaging_item__isnull=False).select_related('packaging_item', 'unit')
+
+    @property
+    def total_raw_material_cost(self) -> Decimal:
+        return sum((line.line_cost for line in self.raw_material_lines), Decimal('0.00'))
+
+    @property
+    def total_packaging_cost(self) -> Decimal:
+        return sum((line.line_cost for line in self.packaging_lines), Decimal('0.00'))
+
+    @property
+    def total_standard_cost(self) -> Decimal:
+        return self.total_raw_material_cost + self.total_packaging_cost
+
+    @property
+    def standard_cost_per_packet(self) -> Decimal:
+        if self.expected_yield_packets > 0:
+            return (self.total_standard_cost / Decimal(str(self.expected_yield_packets))).quantize(Decimal('0.01'))
+        return Decimal('0.00')
+
+
+class BOMLine(models.Model):
+    bom = models.ForeignKey(
+        BillOfMaterial,
+        on_delete=models.CASCADE,
+        related_name='lines'
+    )
+    raw_material = models.ForeignKey(
+        RawMaterial,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name='bom_lines'
+    )
+    packaging_item = models.ForeignKey(
+        PackagingItem,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name='bom_lines'
+    )
+    quantity = models.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        help_text="Standard recipe consumption quantity per batch"
+    )
+    unit = models.ForeignKey(
+        Unit,
+        on_delete=models.PROTECT,
+        related_name='bom_lines',
+        help_text="Unit of measure for this line (e.g. kg, litre, piece)"
+    )
+    notes = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ['id']
+        verbose_name = 'BOM Line Item'
+        verbose_name_plural = 'BOM Line Items'
+
+    def clean(self):
+        if not self.raw_material and not self.packaging_item:
+            raise ValidationError("A BOM line must specify either a Raw Material or a Packaging Item.")
+        if self.raw_material and self.packaging_item:
+            raise ValidationError("A BOM line cannot specify both a Raw Material and a Packaging Item.")
+        if self.quantity is not None and self.quantity <= Decimal('0'):
+            raise ValidationError("Quantity per batch must be greater than zero.")
+
+    @property
+    def item(self):
+        return self.raw_material or self.packaging_item
+
+    @property
+    def item_name(self) -> str:
+        return self.raw_material.name if self.raw_material else self.packaging_item.name
+
+    @property
+    def item_code(self) -> str:
+        return self.raw_material.code if self.raw_material else self.packaging_item.code
+
+    @property
+    def item_type(self) -> str:
+        return 'Raw Material' if self.raw_material else 'Packaging Item'
+
+    @property
+    def standard_rate(self) -> Decimal:
+        return self.raw_material.standard_cost if self.raw_material else self.packaging_item.standard_cost
+
+    @property
+    def line_cost(self) -> Decimal:
+        """Computes cost for this line (taking unit conversion into account if unit differs from master unit)."""
+        if not self.quantity:
+            return Decimal('0.00')
+        master_item = self.item
+        if not master_item:
+            return Decimal('0.00')
+        if self.unit_id != master_item.unit_id:
+            qty_in_master_unit = Unit.convert(self.quantity, self.unit, master_item.unit)
+        else:
+            qty_in_master_unit = self.quantity
+        return (qty_in_master_unit * master_item.standard_cost).quantize(Decimal('0.01'))
+
+    def __str__(self):
+        return f"{self.item_name}: {self.quantity} {self.unit.symbol}"
