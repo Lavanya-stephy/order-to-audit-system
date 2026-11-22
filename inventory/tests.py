@@ -108,12 +108,13 @@ class StockLedgerDerivationTests(TestCase):
         # Verify summary breakdown
         summary = get_stock_summary()
         flour_row = next(r for r in summary if r['code'] == 'RM-FLOUR')
-        # All in current period:
-        self.assertEqual(flour_row['receipts'], Decimal('160.0000'))  # 100 opening + 60 purchase
-        self.assertEqual(flour_row['issues'], Decimal('40.0000'))
+        # Opening stock (100) is counted in the Opening column, not in Inward Receipts:
+        self.assertEqual(flour_row['opening'], Decimal('100.0000'))
+        self.assertEqual(flour_row['receipts'], Decimal('60.0000'))  # Only purchase (60 kg)
+        self.assertEqual(flour_row['issues'], Decimal('40.0000'))    # Only production issue (40 kg)
         self.assertEqual(flour_row['closing'], Decimal('120.0000'))
 
-        # Verify formula: Opening (0 before start) + Receipts - Issues = Closing
+        # Verify formula: Opening + Inward Receipts - Outward Issues = Closing
         self.assertEqual(flour_row['opening'] + flour_row['receipts'] - flour_row['issues'], flour_row['closing'])
 
     def test_packaging_pouch_ledger_derivation(self):
@@ -246,6 +247,132 @@ class StockLedgerDerivationTests(TestCase):
         # Closing = 150 - 30 = 120 kg
         self.assertEqual(ledger['closing_balance'], Decimal('120.0000'))
         self.assertEqual(ledger['opening_balance'] + ledger['total_inward'] - ledger['total_outward'], ledger['closing_balance'])
+
+    def test_stock_summary_opening_counts_in_opening_column_not_inward(self):
+        """
+        Verify:
+        - Opening stock counts in Opening column, NOT in Inward Receipts.
+        - After seed (flour 100 opening): Opening=100, Inward=0, Outward=0, Closing=100.
+        - Inward Receipts only includes purchases, production output, returns, and positive adjustments.
+        - Outward Issues only includes production issues, dispatches, and negative adjustments.
+        - Closing = Opening + Inward - Outward.
+        """
+        # 1. Opening only: 100 kg
+        record_movement(
+            item=self.flour,
+            quantity=Decimal('100.0000'),
+            movement_type=MovementType.OPENING,
+            source_document='OPENING-TEST',
+            user=self.user,
+        )
+
+        summary = get_stock_summary()
+        flour_row = next(r for r in summary if r['code'] == 'RM-FLOUR')
+        self.assertEqual(flour_row['opening'], Decimal('100.0000'), "Opening stock must be counted in Opening column")
+        self.assertEqual(flour_row['receipts'], Decimal('0.0000'), "Opening stock must NOT be in Inward Receipts")
+        self.assertEqual(flour_row['issues'], Decimal('0.0000'), "Outward Issues must be 0")
+        self.assertEqual(flour_row['closing'], Decimal('100.0000'), "Closing must equal Opening")
+        self.assertEqual(flour_row['opening'] + flour_row['receipts'] - flour_row['issues'], flour_row['closing'])
+
+        # 2. Add purchase (+60 kg)
+        record_movement(
+            item=self.flour,
+            quantity=Decimal('60.0000'),
+            movement_type=MovementType.PURCHASE,
+            source_document='PO-001',
+            user=self.user,
+        )
+        # Add return (+5 kg)
+        record_movement(
+            item=self.flour,
+            quantity=Decimal('5.0000'),
+            movement_type=MovementType.RETURN,
+            source_document='RET-001',
+            user=self.user,
+        )
+        # Add positive adjustment (+10 kg)
+        record_movement(
+            item=self.flour,
+            quantity=Decimal('10.0000'),
+            movement_type=MovementType.ADJUSTMENT,
+            source_document='ADJ-PLUS',
+            user=self.user,
+        )
+        # Add production issue (-40 kg)
+        record_movement(
+            item=self.flour,
+            quantity=Decimal('-40.0000'),
+            movement_type=MovementType.PRODUCTION_ISSUE,
+            source_document='RUN-001',
+            user=self.user,
+        )
+        # Add negative adjustment (-5 kg)
+        record_movement(
+            item=self.flour,
+            quantity=Decimal('-5.0000'),
+            movement_type=MovementType.ADJUSTMENT,
+            source_document='ADJ-MINUS',
+            user=self.user,
+        )
+
+        summary = get_stock_summary()
+        flour_row = next(r for r in summary if r['code'] == 'RM-FLOUR')
+
+        # Opening: 100
+        self.assertEqual(flour_row['opening'], Decimal('100.0000'))
+        # Inward receipts: 60 (purchase) + 5 (return) + 10 (positive adjustment) = 75
+        self.assertEqual(flour_row['receipts'], Decimal('75.0000'))
+        # Outward issues: 40 (issue) + 5 (negative adjustment) = 45
+        self.assertEqual(flour_row['issues'], Decimal('45.0000'))
+        # Closing: 100 + 75 - 45 = 130
+        self.assertEqual(flour_row['closing'], Decimal('130.0000'))
+        self.assertEqual(flour_row['opening'] + flour_row['receipts'] - flour_row['issues'], flour_row['closing'])
+        self.assertEqual(flour_row['closing'], get_item_current_stock(self.flour))
+
+    def test_stock_summary_date_range_opening_balance(self):
+        """
+        If a date range is used, Opening means the balance of all movements before start date.
+        Closing = Opening + Inward - Outward, and closing balance matches current stock.
+        """
+        now = timezone.now()
+        yesterday = now - timedelta(days=1)
+        two_days_ago = now - timedelta(days=2)
+
+        # Day -2: Opening 100 kg
+        record_movement(
+            item=self.flour,
+            quantity=Decimal('100.0000'),
+            movement_type=MovementType.OPENING,
+            source_document='OPENING-OLD',
+            created_at=two_days_ago,
+        )
+        # Day -1: Purchase 50 kg
+        record_movement(
+            item=self.flour,
+            quantity=Decimal('50.0000'),
+            movement_type=MovementType.PURCHASE,
+            source_document='PO-OLD',
+            created_at=yesterday,
+        )
+        # Today: Production Issue -30 kg
+        record_movement(
+            item=self.flour,
+            quantity=Decimal('-30.0000'),
+            movement_type=MovementType.PRODUCTION_ISSUE,
+            source_document='RUN-TODAY',
+            created_at=now,
+        )
+
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        summary = get_stock_summary(start_date=today_start)
+        flour_row = next(r for r in summary if r['code'] == 'RM-FLOUR')
+
+        # Balance before start_date = 100 (opening) + 50 (purchase) = 150 kg
+        self.assertEqual(flour_row['opening'], Decimal('150.0000'))
+        self.assertEqual(flour_row['receipts'], Decimal('0.0000'))
+        self.assertEqual(flour_row['issues'], Decimal('30.0000'))
+        self.assertEqual(flour_row['closing'], Decimal('120.0000'))
+        self.assertEqual(flour_row['opening'] + flour_row['receipts'] - flour_row['issues'], flour_row['closing'])
 
     def test_stock_movement_validation_rules(self):
         """Validate signed quantity not zero, and exactly one item linked."""

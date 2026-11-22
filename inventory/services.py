@@ -126,10 +126,29 @@ def get_all_inventory_items() -> List[Dict[str, Any]]:
     return items
 
 
+INWARD_MOVEMENT_TYPES = [
+    MovementType.PURCHASE,
+    MovementType.PRODUCTION_OUTPUT,
+    MovementType.RETURN,
+    MovementType.ADJUSTMENT,
+]
+
+OUTWARD_MOVEMENT_TYPES = [
+    MovementType.PRODUCTION_ISSUE,
+    MovementType.DISPATCH,
+    MovementType.ADJUSTMENT,
+]
+
+
 def get_stock_summary(item_type_filter: Optional[str] = None, start_date=None, end_date=None) -> List[Dict[str, Any]]:
     """
     Generates the complete stock summary table across all inventory items.
-    For every item: Opening Balance + Receipts (Inward) - Issues (Outward) = Closing Balance.
+    Enforces the following rules:
+      - Movements of type Opening are counted in the Opening column, not in Inward Receipts.
+      - Inward Receipts only includes purchases, production output, returns and positive adjustments.
+      - Outward Issues only includes production issues, dispatches and negative adjustments.
+      - If a date range is used, Opening means the balance of all movements before the start date.
+      - Closing = Opening + Inward - Outward, and the closing balances must not change.
     """
     all_items = get_all_inventory_items()
     summary = []
@@ -141,28 +160,43 @@ def get_stock_summary(item_type_filter: Optional[str] = None, start_date=None, e
         item_obj = item_meta['obj']
         q_filter = get_item_filter(item_obj)
 
-        # 1. Opening Balance: Sum of movements strictly before start_date
-        if start_date:
-            opening_qs = StockMovement.objects.filter(q_filter, created_at__lt=start_date)
-            opening_sum = opening_qs.aggregate(val=Sum('quantity'))['val'] or Decimal('0.0000')
-        else:
-            opening_sum = Decimal('0.0000')
-
-        # 2. Period Movements: start_date <= created_at <= end_date
+        # 1. Opening Balance:
+        # - If a date range is used, Opening means the balance of all movements before the start date.
+        # - Any movements of type Opening in the selected period also contribute to Opening (not Inward).
         period_qs = StockMovement.objects.filter(q_filter)
         if start_date:
+            opening_prior = StockMovement.objects.filter(
+                q_filter, created_at__lt=start_date
+            ).aggregate(val=Sum('quantity'))['val'] or Decimal('0.0000')
             period_qs = period_qs.filter(created_at__gte=start_date)
+        else:
+            opening_prior = Decimal('0.0000')
+
         if end_date:
             period_qs = period_qs.filter(created_at__lte=end_date)
 
-        # Inward receipts: quantity > 0
-        receipts = period_qs.filter(quantity__gt=Decimal('0')).aggregate(val=Sum('quantity'))['val'] or Decimal('0.0000')
+        period_opening = period_qs.filter(
+            movement_type=MovementType.OPENING
+        ).aggregate(val=Sum('quantity'))['val'] or Decimal('0.0000')
 
-        # Outward issues: quantity < 0
-        issues_sum = period_qs.filter(quantity__lt=Decimal('0')).aggregate(val=Sum('quantity'))['val'] or Decimal('0.0000')
+        opening_sum = opening_prior + period_opening
+
+        # 2. Inward Receipts: only includes purchases, production output, returns and positive adjustments
+        inward_qs = period_qs.filter(
+            movement_type__in=INWARD_MOVEMENT_TYPES,
+            quantity__gt=Decimal('0')
+        )
+        receipts = inward_qs.aggregate(val=Sum('quantity'))['val'] or Decimal('0.0000')
+
+        # 3. Outward Issues: only includes production issues, dispatches and negative adjustments
+        outward_qs = period_qs.filter(
+            movement_type__in=OUTWARD_MOVEMENT_TYPES,
+            quantity__lt=Decimal('0')
+        )
+        issues_sum = outward_qs.aggregate(val=Sum('quantity'))['val'] or Decimal('0.0000')
         issues = abs(issues_sum)
 
-        # 3. Closing Balance = Opening + Receipts - Issues
+        # 4. Closing Balance = Opening + Inward - Outward
         closing = opening_sum + receipts - issues
 
         reorder = item_meta['reorder_level']

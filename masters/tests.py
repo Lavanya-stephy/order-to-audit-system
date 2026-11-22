@@ -1,5 +1,6 @@
 from decimal import Decimal
 from django.core.exceptions import ValidationError
+from django.core.management import call_command
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth import get_user_model
@@ -18,6 +19,8 @@ from masters.models import (
     BillOfMaterial,
     BOMLine,
 )
+from inventory.models import StockMovement, MovementType
+from inventory.services import get_item_current_stock, get_stock_summary
 
 User = get_user_model()
 
@@ -385,4 +388,179 @@ class BOMScreenTests(TestCase):
         # Accountant denied on edit
         res = client.get(reverse('masters:bom_edit', kwargs={'pk': self.bom.pk}))
         self.assertEqual(res.status_code, 403)
+
+
+class SeedBenchmarkCommandTests(TestCase):
+    """
+    Tests the `seed_benchmark` management command:
+    - Loads all master data from PROBLEM.md Section 5 (BOM, rates, opening stock, roles, Retailer A, Distributor B).
+    - Idempotency & non-duplication: running it more than once must NOT duplicate opening stock movements
+      or alter existing stock balances.
+    """
+
+    def test_seed_benchmark_loads_all_section_5_data(self):
+        """Verifies complete master data, customers, suppliers, BOM, and opening stock."""
+        call_command('seed_benchmark')
+
+        # 1. Users
+        expected_roles = [Role.SALESMAN, Role.ADMIN, Role.PRODUCTION, Role.ACCOUNTANT, Role.OWNER]
+        for role in expected_roles:
+            self.assertTrue(
+                User.objects.filter(role=role).exists(),
+                f"User with role {role} must exist."
+            )
+
+        # 2. Customers
+        retailer_a = Customer.objects.get(name='Retailer A')
+        self.assertEqual(retailer_a.state, 'Tamil Nadu')
+        self.assertFalse(retailer_a.is_interstate(), "Retailer A is intra-state (TN to TN)")
+
+        distributor_b = Customer.objects.get(name='Distributor B')
+        self.assertEqual(distributor_b.state, 'Karnataka')
+        self.assertTrue(distributor_b.is_interstate(), "Distributor B is inter-state (TN to KA)")
+
+        # 3. Product & BOM
+        product = Product.objects.get(code='FG-MURUKKU-200G')
+        self.assertEqual(product.selling_price, Decimal('50.00'))
+        self.assertEqual(product.gst_rate, Decimal('5.00'))
+
+        bom = BillOfMaterial.objects.get(product=product)
+        self.assertEqual(bom.expected_yield_packets, 200)
+        self.assertEqual(bom.lines.count(), 5)
+        self.assertEqual(bom.standard_cost_per_packet, Decimal('19.85'))
+
+        # 4. Opening Stock Balances
+        flour = RawMaterial.objects.get(code='RM-FLOUR')
+        oil = RawMaterial.objects.get(code='RM-OIL')
+        spice = RawMaterial.objects.get(code='RM-SPICE')
+        pouch = PackagingItem.objects.get(code='PM-POUCH-200G')
+        carton = PackagingItem.objects.get(code='PM-CARTON-20')
+
+        self.assertEqual(get_item_current_stock(flour), Decimal('100.0000'))
+        self.assertEqual(get_item_current_stock(oil), Decimal('30.0000'))
+        self.assertEqual(get_item_current_stock(spice), Decimal('5.0000'))
+        self.assertEqual(get_item_current_stock(pouch), Decimal('500.0000'))
+        self.assertEqual(get_item_current_stock(carton), Decimal('30.0000'))
+        self.assertEqual(get_item_current_stock(product), Decimal('50.0000'))
+
+        # 5. Exactly 6 opening movements created
+        self.assertEqual(
+            StockMovement.objects.filter(source_document='OPENING-BENCHMARK-2026').count(),
+            6
+        )
+
+        # 6. Verify Stock Summary breakdown after seed:
+        # Opening contains the opening stock, Receipts is 0, Issues is 0, Closing equals Opening
+        summary = get_stock_summary()
+        summary_by_code = {r['code']: r for r in summary}
+
+        flour_row = summary_by_code['RM-FLOUR']
+        self.assertEqual(flour_row['opening'], Decimal('100.0000'))
+        self.assertEqual(flour_row['receipts'], Decimal('0.0000'))
+        self.assertEqual(flour_row['issues'], Decimal('0.0000'))
+        self.assertEqual(flour_row['closing'], Decimal('100.0000'))
+
+        oil_row = summary_by_code['RM-OIL']
+        self.assertEqual(oil_row['opening'], Decimal('30.0000'))
+        self.assertEqual(oil_row['receipts'], Decimal('0.0000'))
+        self.assertEqual(oil_row['issues'], Decimal('0.0000'))
+        self.assertEqual(oil_row['closing'], Decimal('30.0000'))
+
+        pouch_row = summary_by_code['PM-POUCH-200G']
+        self.assertEqual(pouch_row['opening'], Decimal('500.0000'))
+        self.assertEqual(pouch_row['receipts'], Decimal('0.0000'))
+        self.assertEqual(pouch_row['issues'], Decimal('0.0000'))
+        self.assertEqual(pouch_row['closing'], Decimal('500.0000'))
+
+        prod_row = summary_by_code['FG-MURUKKU-200G']
+        self.assertEqual(prod_row['opening'], Decimal('50.0000'))
+        self.assertEqual(prod_row['receipts'], Decimal('0.0000'))
+        self.assertEqual(prod_row['issues'], Decimal('0.0000'))
+        self.assertEqual(prod_row['closing'], Decimal('50.0000'))
+
+    def test_seed_benchmark_is_idempotent_and_does_not_duplicate_stock(self):
+        """
+        Running seed_benchmark twice must leave every stock balance unchanged
+        and must not create duplicate StockMovement records.
+        """
+        # Run 1
+        call_command('seed_benchmark')
+        movement_count_1 = StockMovement.objects.count()
+        self.assertEqual(movement_count_1, 6)
+
+        flour = RawMaterial.objects.get(code='RM-FLOUR')
+        oil = RawMaterial.objects.get(code='RM-OIL')
+        spice = RawMaterial.objects.get(code='RM-SPICE')
+        pouch = PackagingItem.objects.get(code='PM-POUCH-200G')
+        carton = PackagingItem.objects.get(code='PM-CARTON-20')
+        product = Product.objects.get(code='FG-MURUKKU-200G')
+
+        balances_1 = {
+            'flour': get_item_current_stock(flour),
+            'oil': get_item_current_stock(oil),
+            'spice': get_item_current_stock(spice),
+            'pouch': get_item_current_stock(pouch),
+            'carton': get_item_current_stock(carton),
+            'product': get_item_current_stock(product),
+        }
+
+        # Run 2 (second run)
+        call_command('seed_benchmark')
+
+        movement_count_2 = StockMovement.objects.count()
+        self.assertEqual(
+            movement_count_2, movement_count_1,
+            "Movement count must remain identical after second seed run (no duplicate movements)."
+        )
+
+        balances_2 = {
+            'flour': get_item_current_stock(flour),
+            'oil': get_item_current_stock(oil),
+            'spice': get_item_current_stock(spice),
+            'pouch': get_item_current_stock(pouch),
+            'carton': get_item_current_stock(carton),
+            'product': get_item_current_stock(product),
+        }
+
+        # Verify balances are strictly unchanged
+        self.assertEqual(balances_1, balances_2)
+        self.assertEqual(balances_2['flour'], Decimal('100.0000'))
+        self.assertEqual(balances_2['oil'], Decimal('30.0000'))
+        self.assertEqual(balances_2['spice'], Decimal('5.0000'))
+        self.assertEqual(balances_2['pouch'], Decimal('500.0000'))
+        self.assertEqual(balances_2['carton'], Decimal('30.0000'))
+        self.assertEqual(balances_2['product'], Decimal('50.0000'))
+
+    def test_seed_benchmark_preserves_pre_existing_opening_movements(self):
+        """
+        If opening stock movements already exist prior to seed_benchmark being invoked,
+        they must not be duplicated.
+        """
+        # Pre-seed units and flour
+        kg = Unit.objects.create(name='Kilogram', symbol='kg', category=UnitCategory.WEIGHT)
+        flour = RawMaterial.objects.create(name='Flour', code='RM-FLOUR', unit=kg, standard_cost=Decimal('42.00'))
+
+        StockMovement.objects.create(
+            raw_material=flour,
+            quantity=Decimal('100.0000'),
+            unit=kg,
+            movement_type=MovementType.OPENING,
+            source_document='OPENING-BENCHMARK-2026'
+        )
+
+        self.assertEqual(StockMovement.objects.count(), 1)
+        self.assertEqual(get_item_current_stock(flour), Decimal('100.0000'))
+
+        # Now run seed_benchmark
+        call_command('seed_benchmark')
+
+        # Total movements should be exactly 6 (5 new items + 1 pre-existing flour, no 2nd flour movement)
+        self.assertEqual(StockMovement.objects.count(), 6)
+        self.assertEqual(
+            StockMovement.objects.filter(raw_material=flour, source_document='OPENING-BENCHMARK-2026').count(),
+            1,
+            "Flour opening stock movement must not be duplicated."
+        )
+        self.assertEqual(get_item_current_stock(flour), Decimal('100.0000'))
+
 
