@@ -166,6 +166,11 @@
                     <a href="{% url 'inventory:stock_ledger' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
                         📜 Stock Ledger
                     </a>
+                    {% if user.role == 'admin' or user.role == 'owner' or user.role == 'accountant' or user.is_superuser %}
+                    <a href="{% url 'orders:admin_order_list' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
+                        📥 Orders
+                    </a>
+                    {% endif %}
                     {% if user.role == 'admin' or user.role == 'production' or user.is_superuser %}
                     <a href="{% url 'purchases:purchase_list' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
                         🛒 Purchases
@@ -176,6 +181,13 @@
                     </a>
                     <a href="{% url 'masters:hub' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
                         📁 Master Data
+                    </a>
+                {% else %}
+                    <a href="{% url 'orders:order_create' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:600;">
+                        ➕ New Order
+                    </a>
+                    <a href="{% url 'orders:salesman_order_list' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:600;">
+                        📋 My Orders
                     </a>
                 {% endif %}
                 <span>{{ user.username }}</span>

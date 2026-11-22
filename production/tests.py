@@ -380,3 +380,72 @@ class ProductionPermissionsTests(TestCase):
         self.assertEqual(run.expected_yield, 200)
         self.assertEqual(run.variance_tolerance_pct, Decimal('3.00'))
         self.assertEqual(run.status, ProductionRun.Status.DRAFT)
+
+    def test_production_issue_form_converts_decimal_str_and_leaves_exact_3_point_8(self):
+        """
+        Proves that ProductionIssueItemForm converts input using Decimal(str(val)) and not float,
+        and that issuing 1.2 kg from a 5 kg opening balance leaves exactly Decimal("3.8").
+        """
+        from production.forms import ProductionIssueItemForm
+
+        # 1. Verify ProductionIssueItemForm converts input using Decimal(str(val))
+        form = ProductionIssueItemForm({
+            'item_id': 1,
+            'actual_quantity': '1.2000',
+            'unit_cost': '200.00',
+        })
+        self.assertTrue(form.is_valid())
+        cleaned_qty = form.cleaned_data['actual_quantity']
+        self.assertIsInstance(cleaned_qty, Decimal)
+        self.assertEqual(cleaned_qty, Decimal("1.2"))
+
+        # Even if a float or string with float value is passed
+        form2 = ProductionIssueItemForm({
+            'item_id': 1,
+            'actual_quantity': 1.2,
+            'unit_cost': 200.0,
+        })
+        self.assertTrue(form2.is_valid())
+        self.assertIsInstance(form2.cleaned_data['actual_quantity'], Decimal)
+        self.assertEqual(form2.cleaned_data['actual_quantity'], Decimal("1.2"))
+
+        # 2. Record opening 5 kg on spice and issue 1.2 kg via production run
+        spice = RawMaterial.objects.create(
+            name='Test Spice Mix',
+            code='RM-SPICE-TEST-2',
+            unit=self.kg,
+            standard_cost=Decimal('200.00'),
+        )
+        record_movement(
+            item=spice,
+            quantity=Decimal('5.0000'),
+            movement_type=MovementType.OPENING,
+            source_document='OPENING-TEST',
+            user=self.admin,
+        )
+        self.assertEqual(get_item_current_stock(spice), Decimal('5.0000'))
+
+        BOMLine.objects.create(bom=self.bom, raw_material=spice, quantity=Decimal('1.2000'), unit=self.kg)
+
+        run = create_production_run(
+            product=self.product,
+            bom=self.bom,
+            batch_multiplier=Decimal('1.00'),
+            run_number='PR-EXACT-002',
+            user=self.admin,
+        )
+        spice_run_item = run.items.get(raw_material=spice)
+
+        # Issue 1.2 kg using Decimal(str(value))
+        issue_materials_for_run(
+            run=run,
+            issues_data=[{
+                'item_id': spice_run_item.id,
+                'actual_quantity': Decimal(str('1.2')),
+            }],
+            user=self.admin,
+        )
+
+        closing_stock = get_item_current_stock(spice)
+        self.assertEqual(closing_stock, Decimal("3.8"))
+        self.assertEqual(closing_stock, Decimal("3.8000"))

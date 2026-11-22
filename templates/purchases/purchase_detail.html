@@ -76,7 +76,7 @@
                 <td style="padding:0.65rem 0.8rem; color:var(--text-muted); font-size:0.82rem;">
                     {% if line.raw_material %}Raw Material{% else %}Packaging{% endif %}
                 </td>
-                <td style="padding:0.65rem 0.8rem; text-align:right; font-family:monospace;">{{ line.quantity }}</td>
+                <td style="padding:0.65rem 0.8rem; text-align:right; font-family:monospace;">{{ line.quantity|floatformat:4 }}</td>
                 <td style="padding:0.65rem 0.8rem;">{{ line.unit.symbol }}</td>
                 <td style="padding:0.65rem 0.8rem; text-align:right; font-family:monospace;">₹{{ line.unit_price }}</td>
                 <td style="padding:0.65rem 0.8rem; text-align:right; font-weight:600;">₹{{ line.line_total }}</td>

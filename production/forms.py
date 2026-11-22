@@ -89,6 +89,18 @@ class ProductionIssueItemForm(forms.Form):
         widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'})
     )
 
+    def clean_actual_quantity(self):
+        val = self.cleaned_data.get('actual_quantity')
+        if val is not None:
+            return Decimal(str(val)).quantize(Decimal('0.0001'))
+        return val
+
+    def clean_unit_cost(self):
+        val = self.cleaned_data.get('unit_cost')
+        if val is not None:
+            return Decimal(str(val)).quantize(Decimal('0.01'))
+        return val
+
 
 class ProductionOutputForm(forms.Form):
     actual_yield = forms.IntegerField(

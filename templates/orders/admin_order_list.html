@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+{% block title %}Incoming Orders Desk — Order-to-Audit{% endblock %}
+
+{% block extra_head %}
+<style>
+    .filter-pill {
+        display: inline-block;
+        padding: 0.35rem 0.75rem;
+        border-radius: 9999px;
+        text-decoration: none;
+        font-size: 0.82rem;
+        font-weight: 600;
+        border: 1px solid var(--border);
+        background: #ffffff;
+        color: var(--text-dark);
+        transition: all 0.15s ease;
+    }
+    .filter-pill.active {
+        background: var(--primary);
+        color: #ffffff;
+        border-color: var(--primary);
+    }
+    .orders-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+    .orders-table th {
+        background: #f8fafc;
+        padding: 0.75rem 0.65rem;
+        text-align: left;
+        font-weight: 700;
+        color: var(--text-muted);
+        border-bottom: 2px solid var(--border);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    .orders-table td {
+        padding: 0.85rem 0.65rem;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+    }
+    .orders-table tr:hover {
+        background: #f8fafc;
+    }
+    .badge-status {
+        display: inline-block;
+        padding: 0.25rem 0.65rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    .badge-submitted { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+    .badge-approved { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+    .badge-invoiced { background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; }
+    .badge-dispatched { background: #ccfbf1; color: #0f766e; border: 1px solid #99f6e4; }
+    .badge-rejected { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+
+    /* Stock Coverage Badges */
+    .coverage-covered {
+        background: #ecfdf5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+        padding: 0.25rem 0.55rem;
+        border-radius: 4px;
+        font-weight: 700;
+        font-size: 0.8rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    .coverage-shortage {
+        background: #fef2f2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+        padding: 0.25rem 0.55rem;
+        border-radius: 4px;
+        font-weight: 700;
+        font-size: 0.8rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .btn-action {
+        display: inline-block;
+        padding: 0.35rem 0.65rem;
+        border-radius: 4px;
+        text-decoration: none;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border: 1px solid transparent;
+        cursor: pointer;
+    }
+    .btn-edit { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
+    .btn-approve { background: #16a34a; color: #ffffff; }
+    .btn-reject { background: #dc2626; color: #ffffff; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:1.25rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div>
+            <h2 style="font-size:1.35rem; margin:0;">📥 Incoming Sales Orders & Verification</h2>
+            <p style="color:var(--text-muted); font-size:0.875rem; margin-top:0.25rem;">
+                Review incoming orders from field salesmen, verify finished-goods stock coverage, edit quantities/prices, and approve or reject.
+            </p>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            {% if user.role == 'admin' or user.is_superuser %}
+            <a href="{% url 'inventory:stock_summary' %}" style="display:inline-block; background:#0284c7; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                📊 Check Stock Levels
+            </a>
+            <a href="{% url 'orders:order_create' %}" style="display:inline-block; background:#16a34a; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                ➕ Create Order
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.25rem; align-items:center;">
+    <span style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Filter:</span>
+    <a href="?status=all" class="filter-pill {% if current_status == 'all' %}active{% endif %}">All</a>
+    <a href="?status=submitted" class="filter-pill {% if current_status == 'submitted' %}active{% endif %}">Submitted (Pending)</a>
+    <a href="?status=approved" class="filter-pill {% if current_status == 'approved' %}active{% endif %}">Approved</a>
+    <a href="?status=invoiced" class="filter-pill {% if current_status == 'invoiced' %}active{% endif %}">Invoiced</a>
+    <a href="?status=dispatched" class="filter-pill {% if current_status == 'dispatched' %}active{% endif %}">Dispatched</a>
+    <a href="?status=rejected" class="filter-pill {% if current_status == 'rejected' %}active{% endif %}">Rejected</a>
+</div>
+
+{% if orders_with_coverage %}
+    <div class="card" style="padding:0; overflow-x:auto;">
+        <table class="orders-table">
+            <thead>
+                <tr>
+                    <th>Order #</th>
+                    <th>Date</th>
+                    <th>Salesman</th>
+                    <th>Customer</th>
+                    <th>Ordered Qty</th>
+                    <th>Value (₹)</th>
+                    <th>Stock Coverage</th>
+                    <th>Status</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in orders_with_coverage %}
+                    {% with order=item.order cov=item.coverage %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'orders:order_detail' pk=order.pk %}" style="font-weight:700; color:var(--primary); text-decoration:none;">
+                                    {{ order.order_number }}
+                                </a>
+                            </td>
+                            <td>{{ order.order_date|date:"d M Y" }}</td>
+                            <td>
+                                <span style="font-weight:600; color:#334155;">{{ order.salesman.username }}</span>
+                            </td>
+                            <td>
+                                <div style="font-weight:600; color:var(--text-dark);">{{ order.customer.name }}</div>
+                                <div style="font-size:0.75rem; color:var(--text-muted);">
+                                    {{ order.customer.get_customer_type_display }} &bull; {{ order.customer.state }}
+                                </div>
+                            </td>
+                            <td>
+                                <strong>{{ order.total_quantity|floatformat:0 }}</strong> pkts
+                            </td>
+                            <td>
+                                <strong>₹{{ order.grand_total }}</strong>
+                            </td>
+                            <td>
+                                {% if cov.is_fully_covered %}
+                                    <span class="coverage-covered" title="Finished-goods stock fully covers this order">
+                                        ✅ Stock Covered
+                                    </span>
+                                {% else %}
+                                    <span class="coverage-shortage" title="Insufficient stock! Shortage of {{ cov.total_shortage|floatformat:0 }} packets">
+                                        ⚠️ Shortage: {{ cov.total_shortage|floatformat:0 }} pkts
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge-status {{ order.status_badge_class }}">
+                                    {{ order.get_status_display }}
+                                </span>
+                            </td>
+                            <td style="text-align:right;">
+                                <div style="display:inline-flex; gap:0.35rem; align-items:center;">
+                                    <a href="{% url 'orders:order_detail' pk=order.pk %}" class="btn-action btn-edit">
+                                        View
+                                    </a>
+                                    {% if user.role == 'admin' or user.is_superuser %}
+                                        {% if order.status == 'submitted' or order.status == 'approved' %}
+                                            <a href="{% url 'orders:admin_order_edit' pk=order.pk %}" class="btn-action btn-edit" title="Edit Quantity or Price">
+                                                ✏️ Edit
+                                            </a>
+                                        {% endif %}
+                                        {% if order.status == 'submitted' %}
+                                            <form action="{% url 'orders:admin_order_approve' pk=order.pk %}" method="post" style="display:inline;">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn-action btn-approve" onclick="return confirm('Approve order {{ order.order_number }}?');">
+                                                    Approve
+                                                </button>
+                                            </form>
+                                            <form action="{% url 'orders:admin_order_reject' pk=order.pk %}" method="post" style="display:inline;">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn-action btn-reject" onclick="return confirm('Reject order {{ order.order_number }}?');">
+                                                    Reject
+                                                </button>
+                                            </form>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    {% endwith %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="card" style="text-align:center; padding:3rem 1rem;">
+        <div style="font-size:2.5rem; margin-bottom:0.5rem;">📥</div>
+        <h3 style="color:var(--text-dark); margin-bottom:0.25rem;">No incoming orders</h3>
+        <p style="color:var(--text-muted); font-size:0.9rem;">
+            There are no orders matching the selected filter.
+        </p>
+    </div>
+{% endif %}
+{% endblock %}

@@ -121,8 +121,8 @@
                     <strong>{{ item.raw_material.name }}</strong>
                     <span style="font-family:monospace; color:var(--text-muted); font-size:0.75rem;">[{{ item.raw_material.code }}]</span>
                 </td>
-                <td style="padding:0.65rem 0.8rem; text-align:right; color:var(--text-muted);">{{ item.standard_quantity }}</td>
-                <td style="padding:0.65rem 0.8rem; text-align:right; font-weight:600;">{{ item.actual_quantity }}</td>
+                <td style="padding:0.65rem 0.8rem; text-align:right; color:var(--text-muted);">{{ item.standard_quantity|floatformat:4 }}</td>
+                <td style="padding:0.65rem 0.8rem; text-align:right; font-weight:600;">{{ item.actual_quantity|floatformat:4 }}</td>
                 <td style="padding:0.65rem 0.8rem; color:var(--text-muted);">{{ item.unit.symbol }}</td>
                 <td style="padding:0.65rem 0.8rem; text-align:right;">
                     {% if item.actual_quantity > 0 %}
@@ -186,10 +186,10 @@
                     <strong>{{ item.packaging_item.name }}</strong>
                     <span style="font-family:monospace; color:var(--text-muted); font-size:0.75rem;">[{{ item.packaging_item.code }}]</span>
                 </td>
-                <td style="padding:0.65rem 0.8rem; text-align:right; color:var(--text-muted);">{{ item.standard_quantity }}</td>
+                <td style="padding:0.65rem 0.8rem; text-align:right; color:var(--text-muted);">{{ item.standard_quantity|floatformat:4 }}</td>
                 <td style="padding:0.65rem 0.8rem; text-align:right; font-weight:600;">
                     {% if run.status == 'completed' %}
-                        {{ item.actual_quantity }}
+                        {{ item.actual_quantity|floatformat:4 }}
                     {% else %}
                         <span style="color:#94a3b8;">Pending</span>
                     {% endif %}

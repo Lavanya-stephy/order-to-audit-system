@@ -29,6 +29,7 @@ def record_movement(
     """
     if not isinstance(quantity, Decimal):
         quantity = Decimal(str(quantity))
+    quantity = quantity.quantize(Decimal('0.0001'))
 
     rm = item if isinstance(item, RawMaterial) else None
     pm = item if isinstance(item, PackagingItem) else None
@@ -39,6 +40,9 @@ def record_movement(
 
     if unit_cost is None:
         unit_cost = getattr(item, 'standard_cost', Decimal('0.00'))
+    elif not isinstance(unit_cost, Decimal):
+        unit_cost = Decimal(str(unit_cost))
+    unit_cost = unit_cost.quantize(Decimal('0.01'))
 
     movement = StockMovement(
         raw_material=rm,
@@ -72,6 +76,12 @@ def get_item_filter(item: InventoryItem) -> Q:
     raise ValueError(f"Unsupported item type: {type(item)}")
 
 
+def _sum_movement_quantities(qs) -> Decimal:
+    """Computes exact Decimal sum of movement quantities without float conversion drift."""
+    quantities = qs.values_list('quantity', flat=True)
+    return sum(quantities, Decimal('0.0000')).quantize(Decimal('0.0001'))
+
+
 def get_item_current_stock(item: InventoryItem, at_date=None) -> Decimal:
     """
     Calculates the exact current stock balance for an item by summing all ledger movements.
@@ -80,8 +90,7 @@ def get_item_current_stock(item: InventoryItem, at_date=None) -> Decimal:
     qs = StockMovement.objects.filter(get_item_filter(item))
     if at_date:
         qs = qs.filter(created_at__lte=at_date)
-    total = qs.aggregate(balance=Sum('quantity'))['balance']
-    return total if total is not None else Decimal('0.0000')
+    return _sum_movement_quantities(qs)
 
 
 def get_all_inventory_items() -> List[Dict[str, Any]]:
@@ -165,9 +174,9 @@ def get_stock_summary(item_type_filter: Optional[str] = None, start_date=None, e
         # - Any movements of type Opening in the selected period also contribute to Opening (not Inward).
         period_qs = StockMovement.objects.filter(q_filter)
         if start_date:
-            opening_prior = StockMovement.objects.filter(
-                q_filter, created_at__lt=start_date
-            ).aggregate(val=Sum('quantity'))['val'] or Decimal('0.0000')
+            opening_prior = _sum_movement_quantities(
+                StockMovement.objects.filter(q_filter, created_at__lt=start_date)
+            )
             period_qs = period_qs.filter(created_at__gte=start_date)
         else:
             opening_prior = Decimal('0.0000')
@@ -175,29 +184,29 @@ def get_stock_summary(item_type_filter: Optional[str] = None, start_date=None, e
         if end_date:
             period_qs = period_qs.filter(created_at__lte=end_date)
 
-        period_opening = period_qs.filter(
-            movement_type=MovementType.OPENING
-        ).aggregate(val=Sum('quantity'))['val'] or Decimal('0.0000')
+        period_opening = _sum_movement_quantities(
+            period_qs.filter(movement_type=MovementType.OPENING)
+        )
 
-        opening_sum = opening_prior + period_opening
+        opening_sum = (opening_prior + period_opening).quantize(Decimal('0.0001'))
 
         # 2. Inward Receipts: only includes purchases, production output, returns and positive adjustments
         inward_qs = period_qs.filter(
             movement_type__in=INWARD_MOVEMENT_TYPES,
             quantity__gt=Decimal('0')
         )
-        receipts = inward_qs.aggregate(val=Sum('quantity'))['val'] or Decimal('0.0000')
+        receipts = _sum_movement_quantities(inward_qs)
 
         # 3. Outward Issues: only includes production issues, dispatches and negative adjustments
         outward_qs = period_qs.filter(
             movement_type__in=OUTWARD_MOVEMENT_TYPES,
             quantity__lt=Decimal('0')
         )
-        issues_sum = outward_qs.aggregate(val=Sum('quantity'))['val'] or Decimal('0.0000')
+        issues_sum = _sum_movement_quantities(outward_qs)
         issues = abs(issues_sum)
 
         # 4. Closing Balance = Opening + Inward - Outward
-        closing = opening_sum + receipts - issues
+        closing = (opening_sum + receipts - issues).quantize(Decimal('0.0001'))
 
         reorder = item_meta['reorder_level']
         is_low_stock = bool(reorder > Decimal('0') and closing <= reorder)
@@ -232,8 +241,9 @@ def get_item_ledger(item: InventoryItem, start_date=None, end_date=None) -> Dict
 
     # 1. Opening Balance
     if start_date:
-        opening_qs = StockMovement.objects.filter(q_filter, created_at__lt=start_date)
-        opening_balance = opening_qs.aggregate(val=Sum('quantity'))['val'] or Decimal('0.0000')
+        opening_balance = _sum_movement_quantities(
+            StockMovement.objects.filter(q_filter, created_at__lt=start_date)
+        )
     else:
         opening_balance = Decimal('0.0000')
 
@@ -251,20 +261,21 @@ def get_item_ledger(item: InventoryItem, start_date=None, end_date=None) -> Dict
     total_outward = Decimal('0.0000')
 
     for m in movements_qs:
-        running += m.quantity
-        if m.quantity > Decimal('0'):
-            total_inward += m.quantity
+        m_qty = m.quantity.quantize(Decimal('0.0001'))
+        running = (running + m_qty).quantize(Decimal('0.0001'))
+        if m_qty > Decimal('0'):
+            total_inward = (total_inward + m_qty).quantize(Decimal('0.0001'))
         else:
-            total_outward += abs(m.quantity)
+            total_outward = (total_outward + abs(m_qty)).quantize(Decimal('0.0001'))
 
         ledger_entries.append({
             'movement': m,
-            'inward_qty': m.inward_quantity,
-            'outward_qty': m.outward_quantity,
+            'inward_qty': m.inward_quantity.quantize(Decimal('0.0001')),
+            'outward_qty': m.outward_quantity.quantize(Decimal('0.0001')),
             'running_balance': running,
         })
 
-    closing_balance = opening_balance + total_inward - total_outward
+    closing_balance = (opening_balance + total_inward - total_outward).quantize(Decimal('0.0001'))
 
     return {
         'item': item,

@@ -12,6 +12,9 @@
             </p>
         </div>
         <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <a href="{% url 'orders:admin_order_list' %}" style="display:inline-block; background:#059669; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                📥 Incoming Orders
+            </a>
             <a href="{% url 'inventory:stock_summary' %}" style="display:inline-block; background:#0284c7; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
                 📊 Stock Summary
             </a>
@@ -26,8 +29,9 @@
     <div class="feature-card">
         <h3>📥 Incoming Orders & Verification</h3>
         <p>Review orders from field salesmen, verify finished-goods stock coverage, and approve or adjust quantities.</p>
-        <div style="margin-top:0.75rem;">
-            <a href="{% url 'inventory:stock_summary' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">Check Stock Levels &rarr;</a>
+        <div style="margin-top:0.75rem; display:flex; gap:1rem;">
+            <a href="{% url 'orders:admin_order_list' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">Review Incoming Orders &rarr;</a>
+            <a href="{% url 'inventory:stock_summary' %}" style="color:var(--text-muted); text-decoration:none; font-size:0.85rem;">Check Stock &rarr;</a>
         </div>
     </div>
     <div class="feature-card">

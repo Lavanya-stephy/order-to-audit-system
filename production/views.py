@@ -7,7 +7,12 @@ from django.urls import reverse
 from accounts.models import Role
 from accounts.permissions import role_required
 from .models import ProductionRun, ProductionRunItem, ProductionRunLog, DEFAULT_VARIANCE_TOLERANCE_PCT
-from .forms import ProductionRunCreateForm, ProductionRunEditForm, ProductionOutputForm
+from .forms import (
+    ProductionRunCreateForm,
+    ProductionRunEditForm,
+    ProductionIssueItemForm,
+    ProductionOutputForm,
+)
 from .services import (
     create_production_run,
     issue_materials_for_run,
@@ -123,23 +128,35 @@ def production_run_issue_view(request, pk):
 
     if request.method == 'POST':
         issues_data = []
+        has_errors = False
         for item in raw_items:
             qty_field = f"qty_{item.id}"
             cost_field = f"cost_{item.id}"
             val = request.POST.get(qty_field)
             cost_val = request.POST.get(cost_field)
-            if val is not None:
-                d = {'item_id': item.id, 'actual_quantity': Decimal(str(val))}
-                if cost_val:
-                    d['unit_cost'] = Decimal(str(cost_val))
-                issues_data.append(d)
+            if val is not None and str(val).strip() != '':
+                form = ProductionIssueItemForm({
+                    'item_id': item.id,
+                    'actual_quantity': Decimal(str(val).strip()),
+                    'unit_cost': Decimal(str(cost_val).strip()) if (cost_val and str(cost_val).strip() != '') else item.unit_cost,
+                })
+                if form.is_valid():
+                    issues_data.append({
+                        'item_id': item.id,
+                        'actual_quantity': Decimal(str(form.cleaned_data['actual_quantity'])),
+                        'unit_cost': Decimal(str(form.cleaned_data['unit_cost'])) if form.cleaned_data.get('unit_cost') is not None else item.unit_cost,
+                    })
+                else:
+                    has_errors = True
+                    messages.error(request, f"Invalid value for {item.raw_material.name}: {form.errors}")
 
-        try:
-            movements = issue_materials_for_run(run, issues_data=issues_data, user=request.user)
-            messages.success(request, f"Successfully issued materials for {run.run_number}. {len(movements)} stock ledger movements recorded.")
-            return redirect('production:production_run_detail', pk=run.pk)
-        except Exception as e:
-            messages.error(request, f"Error issuing materials: {e}")
+        if not has_errors:
+            try:
+                movements = issue_materials_for_run(run, issues_data=issues_data, user=request.user)
+                messages.success(request, f"Successfully issued materials for {run.run_number}. {len(movements)} stock ledger movements recorded.")
+                return redirect('production:production_run_detail', pk=run.pk)
+            except Exception as e:
+                messages.error(request, f"Error issuing materials: {str(e)}")
 
     return render(request, 'production/production_run_issue.html', {
         'run': run,

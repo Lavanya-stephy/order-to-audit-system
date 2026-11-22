@@ -121,7 +121,7 @@
             <div style="text-align:right;">
                 <span style="font-size:0.8rem; text-transform:uppercase; color:var(--text-muted); font-weight:600;">Derived Current Balance</span>
                 <div style="font-size:1.8rem; font-weight:700; color:var(--primary);">
-                    {{ ledger_data.closing_balance }} <span style="font-size:1rem; font-weight:normal; color:var(--text-muted);">{{ item_obj.unit.symbol }}</span>
+                    {{ ledger_data.closing_balance|floatformat:4 }} <span style="font-size:1rem; font-weight:normal; color:var(--text-muted);">{{ item_obj.unit.symbol }}</span>
                 </div>
             </div>
         </div>
@@ -147,7 +147,7 @@
                         <td colspan="5">Opening Balance as of {{ start_date }}</td>
                         <td class="num">—</td>
                         <td class="num">—</td>
-                        <td class="num" style="font-weight:700;">{{ ledger_data.opening_balance }} {{ item_obj.unit.symbol }}</td>
+                        <td class="num" style="font-weight:700;">{{ ledger_data.opening_balance|floatformat:4 }} {{ item_obj.unit.symbol }}</td>
                     </tr>
                 {% endif %}
 
@@ -183,13 +183,13 @@
                             {{ entry.movement.user.username|default:"System" }}
                         </td>
                         <td class="num" style="color:var(--success); font-weight:600;">
-                            {% if entry.inward_qty > 0 %}+{{ entry.inward_qty }}{% else %}—{% endif %}
+                            {% if entry.inward_qty > 0 %}+{{ entry.inward_qty|floatformat:4 }}{% else %}—{% endif %}
                         </td>
                         <td class="num" style="color:var(--danger); font-weight:600;">
-                            {% if entry.outward_qty > 0 %}−{{ entry.outward_qty }}{% else %}—{% endif %}
+                            {% if entry.outward_qty > 0 %}−{{ entry.outward_qty|floatformat:4 }}{% else %}—{% endif %}
                         </td>
                         <td class="num" style="font-weight:700; color:var(--text-dark);">
-                            {{ entry.running_balance }} {{ item_obj.unit.symbol }}
+                            {{ entry.running_balance|floatformat:4 }} {{ item_obj.unit.symbol }}
                         </td>
                     </tr>
                 {% empty %}

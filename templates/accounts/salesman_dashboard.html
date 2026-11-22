@@ -21,10 +21,20 @@
     <div class="feature-card">
         <h3>📝 Place New Order</h3>
         <p>Select retailer or distributor, add products with quantities, and submit directly to factory.</p>
+        <div style="margin-top:0.75rem;">
+            <a href="{% url 'orders:order_create' %}" style="display:inline-block; background:#16a34a; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                ➕ Book Order Now &rarr;
+            </a>
+        </div>
     </div>
     <div class="feature-card">
         <h3>📋 My Orders & Status</h3>
         <p>Track submitted orders through Submitted, Approved, Invoiced, and Dispatched stages.</p>
+        <div style="margin-top:0.75rem;">
+            <a href="{% url 'orders:salesman_order_list' %}" style="display:inline-block; background:#2563eb; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                View My Orders &rarr;
+            </a>
+        </div>
     </div>
     <div class="feature-card">
         <h3>🏪 Customer Sales</h3>

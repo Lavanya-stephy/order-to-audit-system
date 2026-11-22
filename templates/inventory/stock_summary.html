@@ -160,18 +160,18 @@
                     <td><span style="font-family:monospace; background:#f1f5f9; padding:0.15rem 0.4rem; border-radius:3px;">{{ row.code }}</span></td>
                     <td>{{ row.type_name }}</td>
                     <td>{{ row.unit.symbol }}</td>
-                    <td class="num">{{ row.opening }}</td>
+                    <td class="num">{{ row.opening|floatformat:4 }}</td>
                     <td class="num" style="color:var(--success); font-weight:600;">
-                        {% if row.receipts > 0 %}+{{ row.receipts }}{% else %}{{ row.receipts }}{% endif %}
+                        {% if row.receipts > 0 %}+{{ row.receipts|floatformat:4 }}{% else %}{{ row.receipts|floatformat:4 }}{% endif %}
                     </td>
                     <td class="num" style="color:var(--danger); font-weight:600;">
-                        {% if row.issues > 0 %}−{{ row.issues }}{% else %}{{ row.issues }}{% endif %}
+                        {% if row.issues > 0 %}−{{ row.issues|floatformat:4 }}{% else %}{{ row.issues|floatformat:4 }}{% endif %}
                     </td>
                     <td class="num" style="font-weight:700; font-size:0.95rem; color:var(--text-dark);">
-                        {{ row.closing }}
+                        {{ row.closing|floatformat:4 }}
                     </td>
                     <td class="num" style="color:var(--text-muted);">
-                        {% if row.reorder_level > 0 %}{{ row.reorder_level }}{% else %}—{% endif %}
+                        {% if row.reorder_level > 0 %}{{ row.reorder_level|floatformat:4 }}{% else %}—{% endif %}
                     </td>
                     <td>
                         {% if row.is_low_stock %}

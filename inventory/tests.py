@@ -553,3 +553,45 @@ class StockScreensAndPermissionTests(TestCase):
         self.assertNotContains(res_sales, summary_url, msg_prefix="Salesman must NOT see Stock Summary link")
         self.assertNotContains(res_sales, ledger_url, msg_prefix="Salesman must NOT see Stock Ledger link")
         client.logout()
+
+    def test_issuing_1_point_2_kg_from_5_kg_leaves_exact_decimal_3_point_8(self):
+        """
+        Proves that issuing 1.2 kg from 5 kg leaves exactly Decimal("3.8")
+        without float drift or unexpected trailing zeroes in balance and stock summary.
+        """
+        spice = RawMaterial.objects.create(
+            name='Salt and spice mix exact test',
+            code='RM-SPICE-EXACT',
+            unit=self.kg,
+            standard_cost=Decimal('200.00'),
+        )
+        # Opening balance 5 kg
+        record_movement(
+            item=spice,
+            quantity=Decimal('5.0000'),
+            movement_type=MovementType.OPENING,
+            source_document='OPENING-2026',
+            user=self.production,
+        )
+
+        # Issue 1.2 kg
+        record_movement(
+            item=spice,
+            quantity=Decimal('-1.2000'),
+            movement_type=MovementType.PRODUCTION_ISSUE,
+            source_document='PR-2026-001',
+            user=self.production,
+        )
+
+        balance = get_item_current_stock(spice)
+        self.assertEqual(balance, Decimal("3.8"))
+        self.assertEqual(balance, Decimal("3.8000"))
+
+        summary = get_stock_summary()
+        spice_row = next((r for r in summary if r['code'] == 'RM-SPICE-EXACT'), None)
+        self.assertIsNotNone(spice_row)
+        self.assertEqual(spice_row['opening'], Decimal('5.0000'))
+        self.assertEqual(spice_row['issues'], Decimal('1.2000'))
+        self.assertEqual(spice_row['closing'], Decimal("3.8"))
+        self.assertEqual(spice_row['closing'], Decimal("3.8000"))
+        self.assertEqual(str(spice_row['closing']), '3.8000')
