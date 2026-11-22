@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}Suppliers - Order-to-Audit{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div>
+            <h2>🏭 Suppliers & Vendors</h2>
+            <p style="color:var(--text-muted); font-size:0.9rem;">
+                Vendors providing raw flour, oil, salt/spices, and packaging materials.
+            </p>
+        </div>
+        <div style="display:flex; gap:0.5rem;">
+            <a href="{% url 'masters:hub' %}" style="display:inline-block; background:#e2e8f0; color:#334155; padding:0.4rem 0.8rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                &larr; Hub
+            </a>
+            {% if can_edit %}
+                <a href="{% url 'masters:supplier_add' %}" style="display:inline-block; background:var(--primary); color:#ffffff; padding:0.4rem 0.8rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                    + Add Supplier
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <table style="width:100%; border-collapse:collapse; margin-top:1.25rem; font-size:0.9rem;">
+        <thead>
+            <tr style="background:#f8fafc; border-bottom:2px solid var(--border); text-align:left;">
+                <th style="padding:0.6rem 0.8rem;">Supplier Name</th>
+                <th style="padding:0.6rem 0.8rem;">Contact Person</th>
+                <th style="padding:0.6rem 0.8rem;">Phone</th>
+                <th style="padding:0.6rem 0.8rem;">City / State</th>
+                <th style="padding:0.6rem 0.8rem;">GSTIN</th>
+                <th style="padding:0.6rem 0.8rem;">Status</th>
+                {% if can_edit %}<th style="padding:0.6rem 0.8rem; text-align:right;">Actions</th>{% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in suppliers %}
+                <tr style="border-bottom:1px solid var(--border);">
+                    <td style="padding:0.6rem 0.8rem; font-weight:600;">{{ item.name }}</td>
+                    <td style="padding:0.6rem 0.8rem;">{{ item.contact_person|default:"—" }}</td>
+                    <td style="padding:0.6rem 0.8rem;">{{ item.phone|default:"—" }}</td>
+                    <td style="padding:0.6rem 0.8rem;">{{ item.city|default:item.state }} ({{ item.state_code }})</td>
+                    <td style="padding:0.6rem 0.8rem; font-family:monospace;">{{ item.gstin|default:"—" }}</td>
+                    <td style="padding:0.6rem 0.8rem;">
+                        {% if item.is_active %}
+                            <span class="badge" style="background:#dcfce7; color:#15803d;">Active</span>
+                        {% else %}
+                            <span class="badge" style="background:#fee2e2; color:#b91c1c;">Inactive</span>
+                        {% endif %}
+                    </td>
+                    {% if can_edit %}
+                        <td style="padding:0.6rem 0.8rem; text-align:right;">
+                            <a href="{% url 'masters:supplier_edit' item.pk %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; margin-right:0.6rem;">Edit</a>
+                            <a href="{% url 'masters:supplier_delete' item.pk %}" style="color:var(--danger); text-decoration:none; font-weight:600;">Delete</a>
+                        </td>
+                    {% endif %}
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="7" style="padding:1.5rem; text-align:center; color:var(--text-muted);">
+                        No suppliers registered yet. Click "+ Add Supplier" to record vendor details.
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

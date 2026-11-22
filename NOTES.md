@@ -88,11 +88,14 @@ Following Section 6 of `PROBLEM.md`, development will be executed in staged phas
   - `Accountant / Auditor`: Read-only access to monthly audit packs and export registers.
   - `Owner`: High-level operational dashboard (orders, stock alerts, variances, dues).
   - Role-based login redirection (`ROLE_DASHBOARD_URLS`) and strict permission decorator (`@role_required`).
-- [ ] Master Data Models:
-  - Unit of Measure (`UOM`): kg, g, litre, ml, piece, packet, carton.
-  - Items / Products: Classified as Raw Material (`RM`), Packaging Material (`PM`), or Finished Goods (`FG`), with HSN codes, tax rates, standard purchase/selling rates.
-  - Customer & Supplier masters (with GSTIN, State code for place of supply determination).
-  - Bill of Materials (`BOM` & `BOMItem`): Standard input quantities and expected output per batch.
+- [x] Master Data Models:
+  - Unit of Measure (`Unit`): kg, g, litre, ml, piece, packet, carton with category ratios and conversion rules (`UnitConversion`).
+  - Raw Materials (`RawMaterial`): Flour, cooking oil, spices with standard costs and reorder thresholds.
+  - Packaging Items (`PackagingItem`): Pouches, cartons, capacity mappings, and purchase rates.
+  - Finished Goods (`Product`): Pack size, HSN codes (e.g. 19059040), pre-tax selling price (₹50.00), GST rate (5.00%), carton packet capacities.
+  - Customer & Supplier masters (`Customer`, `Supplier`): Retailer vs Distributor channel, GSTIN, State code (`is_interstate()` logic).
+  - Web CRUD interfaces and Django Admin registrations with role permissions.
+- [ ] Bill of Materials (`BOM` & `BOMItem`): Standard input quantities and expected output per batch.
 
 ### Phase 2: Inventory Ledger & Production Loop (Highest Evaluation Weight)
 - [ ] `StockMovement` append-only ledger model with document linkage (GenericForeignKey or explicit FKs).

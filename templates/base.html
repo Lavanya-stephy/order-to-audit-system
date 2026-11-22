@@ -159,6 +159,11 @@
         </a>
         <div class="user-nav">
             {% if user.is_authenticated %}
+                {% if user.role != 'salesman' %}
+                    <a href="{% url 'masters:hub' %}" style="color:#ffffff; text-decoration:none; margin-right:0.5rem; font-weight:500;">
+                        📁 Master Data
+                    </a>
+                {% endif %}
                 <span>{{ user.username }}</span>
                 <span class="role-badge">{{ user.get_role_display }}</span>
                 <form action="{% url 'logout' %}" method="post" style="display:inline;">

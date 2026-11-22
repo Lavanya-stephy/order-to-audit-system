@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+
+{% block title %}Master Data Hub - Order-to-Audit{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div>
+            <h2>📁 Master Data Management</h2>
+            <p style="color:var(--text-muted); font-size:0.9rem;">
+                Core catalogs: Units, Raw Materials, Packaging, Products, Customers, and Suppliers.
+            </p>
+        </div>
+        <a href="{% url 'role_redirect' %}" style="display:inline-block; background:#e2e8f0; color:#334155; padding:0.4rem 0.8rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+            &larr; Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<div class="grid">
+    <div class="feature-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+            <h3>⚖️ Units & Conversions</h3>
+            <span class="badge" style="background:#e0f2fe; color:#0369a1;">{{ units_count }} units</span>
+        </div>
+        <p>Manage measurement units (kg, g, litre, ml, piece, packet, carton) and conversion multipliers.</p>
+        <div style="margin-top:1rem;">
+            <a href="{% url 'masters:unit_list' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.9rem;">View & Manage &rarr;</a>
+        </div>
+    </div>
+
+    <div class="feature-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+            <h3>🌾 Raw Materials</h3>
+            <span class="badge" style="background:#fef3c7; color:#92400e;">{{ raw_materials_count }} items</span>
+        </div>
+        <p>Flour, cooking oil, spices, and seasonings with standard cost rates and reorder levels.</p>
+        <div style="margin-top:1rem;">
+            <a href="{% url 'masters:rawmaterial_list' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.9rem;">View & Manage &rarr;</a>
+        </div>
+    </div>
+
+    <div class="feature-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+            <h3>📦 Packaging Items</h3>
+            <span class="badge" style="background:#ede9fe; color:#5b21b6;">{{ packaging_items_count }} items</span>
+        </div>
+        <p>Primary pouches (200 g, 500 g), master cartons, carton capacities, and purchase costs.</p>
+        <div style="margin-top:1rem;">
+            <a href="{% url 'masters:packagingitem_list' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.9rem;">View & Manage &rarr;</a>
+        </div>
+    </div>
+
+    <div class="feature-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+            <h3>🏷️ Finished Products</h3>
+            <span class="badge" style="background:#dcfce7; color:#15803d;">{{ products_count }} products</span>
+        </div>
+        <p>Packaged snacks (e.g. Murukku 200 g), HSN codes, pack sizes, selling prices, and GST tax slabs.</p>
+        <div style="margin-top:1rem;">
+            <a href="{% url 'masters:product_list' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.9rem;">View & Manage &rarr;</a>
+        </div>
+    </div>
+
+    <div class="feature-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+            <h3>🏪 Customers (Channels)</h3>
+            <span class="badge" style="background:#fce7f3; color:#9d174d;">{{ customers_count }} accounts</span>
+        </div>
+        <p>Retailers and distributors with state codes (place of supply for CGST+SGST vs IGST) and GSTIN.</p>
+        <div style="margin-top:1rem;">
+            <a href="{% url 'masters:customer_list' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.9rem;">View & Manage &rarr;</a>
+        </div>
+    </div>
+
+    <div class="feature-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+            <h3>🏭 Suppliers</h3>
+            <span class="badge" style="background:#f1f5f9; color:#475569;">{{ suppliers_count }} vendors</span>
+        </div>
+        <p>Approved suppliers for raw flour, oil, spices, and packaging materials.</p>
+        <div style="margin-top:1rem;">
+            <a href="{% url 'masters:supplier_list' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.9rem;">View & Manage &rarr;</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

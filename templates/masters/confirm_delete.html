@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Confirm Deletion - Order-to-Audit{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:500px; margin:3rem auto; text-align:center; padding:2rem;">
+    <div style="font-size:2.5rem; margin-bottom:1rem;">⚠️</div>
+    <h2 style="font-size:1.3rem; margin-bottom:0.75rem; color:var(--danger);">Confirm Deletion</h2>
+    <p style="color:var(--text-dark); margin-bottom:1.5rem; font-size:0.95rem;">
+        Are you sure you want to delete <strong>{{ object }}</strong>?
+    </p>
+
+    <form method="post">
+        {% csrf_token %}
+        <div style="display:flex; justify-content:center; gap:1rem;">
+            <a href="{{ back_url|default:'..' }}" style="display:inline-block; background:#e2e8f0; color:#334155; padding:0.6rem 1.25rem; border-radius:6px; text-decoration:none; font-weight:600; font-size:0.9rem;">
+                Cancel
+            </a>
+            <button type="submit" style="background:var(--danger); color:#ffffff; border:none; padding:0.6rem 1.25rem; border-radius:6px; font-weight:600; cursor:pointer; font-size:0.9rem;">
+                Yes, Delete
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
