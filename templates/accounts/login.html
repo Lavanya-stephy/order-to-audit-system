@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - Order-to-Audit System{% endblock %}
+
+{% block extra_head %}
+<style>
+    .login-container {
+        max-width: 420px;
+        margin: 2rem auto;
+    }
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 0.4rem;
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: var(--text-dark);
+    }
+    .form-control {
+        width: 100%;
+        padding: 0.65rem 0.85rem;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 0.95rem;
+        transition: border-color 0.15s ease;
+    }
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary-light);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+    .btn-primary {
+        background-color: var(--primary);
+        color: #ffffff;
+        border: none;
+        padding: 0.75rem 1.25rem;
+        border-radius: 6px;
+        width: 100%;
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    .btn-primary:hover {
+        background-color: #1e40af;
+    }
+    .error-box {
+        background-color: #fee2e2;
+        border: 1px solid #fca5a5;
+        color: var(--danger);
+        padding: 0.75rem;
+        border-radius: 6px;
+        margin-bottom: 1.25rem;
+        font-size: 0.875rem;
+    }
+    .demo-roles-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+        margin-top: 0.75rem;
+    }
+    .demo-roles-table th, .demo-roles-table td {
+        border: 1px solid var(--border);
+        padding: 0.4rem 0.6rem;
+        text-align: left;
+    }
+    .demo-roles-table th {
+        background-color: #f1f5f9;
+        font-weight: 600;
+    }
+    .demo-badge {
+        font-size: 0.72rem;
+        padding: 0.15rem 0.4rem;
+        border-radius: 4px;
+        background: #e2e8f0;
+        font-family: monospace;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="card">
+        <h2 style="font-size:1.4rem; margin-bottom:0.5rem; text-align:center;">Sign In</h2>
+        <p style="color:var(--text-muted); font-size:0.875rem; text-align:center; margin-bottom:1.5rem;">
+            Select your role to access your portal
+        </p>
+
+        {% if form.errors %}
+            <div class="error-box">
+                Invalid username or password. Please try again.
+            </div>
+        {% endif %}
+
+        <form method="post" action="{% url 'login' %}">
+            {% csrf_token %}
+            {% if request.GET.next %}
+                <input type="hidden" name="next" value="{{ request.GET.next }}">
+            {% endif %}
+
+            <div class="form-group">
+                <label for="id_username">Username</label>
+                <input type="text" name="username" id="id_username" class="form-control" autofocus required>
+            </div>
+
+            <div class="form-group">
+                <label for="id_password">Password</label>
+                <input type="password" name="password" id="id_password" class="form-control" required>
+            </div>
+
+            <button type="submit" class="btn-primary">Sign In</button>
+        </form>
+
+        <div style="margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+            <p style="font-size:0.8rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">
+                Standard Role Credentials:
+            </p>
+            <table class="demo-roles-table">
+                <thead>
+                    <tr>
+                        <th>Role</th>
+                        <th>Username</th>
+                        <th>Default Role Access</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Salesman</strong></td>
+                        <td><span class="demo-badge">salesman</span></td>
+                        <td>Mobile field order taking</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Factory Admin</strong></td>
+                        <td><span class="demo-badge">admin</span></td>
+                        <td>GST billing, approval, dispatch</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Production</strong></td>
+                        <td><span class="demo-badge">production</span></td>
+                        <td>BOM, issues, production runs</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Accountant</strong></td>
+                        <td><span class="demo-badge">accountant</span></td>
+                        <td>Read-only monthly reports</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Owner</strong></td>
+                        <td><span class="demo-badge">owner</span></td>
+                        <td>Executive summary dashboard</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}Salesman Portal - Order-to-Audit{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div>
+            <h2>📱 Field Sales Portal</h2>
+            <p style="color:var(--text-muted); font-size:0.9rem;">
+                Logged in as <strong>{{ user.username }}</strong> &bull; Role: <span class="role-badge" style="background:#2563eb; color:#fff;">Salesman</span>
+            </p>
+        </div>
+        <span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;">
+            Mobile-Optimized View
+        </span>
+    </div>
+</div>
+
+<div class="grid">
+    <div class="feature-card">
+        <h3>📝 Place New Order</h3>
+        <p>Select retailer or distributor, add products with quantities, and submit directly to factory.</p>
+    </div>
+    <div class="feature-card">
+        <h3>📋 My Orders & Status</h3>
+        <p>Track submitted orders through Submitted, Approved, Invoiced, and Dispatched stages.</p>
+    </div>
+    <div class="feature-card">
+        <h3>🏪 Customer Sales</h3>
+        <p>View customer-wise order history and outstanding dues before booking new orders.</p>
+    </div>
+    <div class="feature-card">
+        <h3>📶 Offline Order Queue</h3>
+        <p>Draft orders captured without internet connectivity, ready to sync on network return.</p>
+    </div>
+</div>
+{% endblock %}

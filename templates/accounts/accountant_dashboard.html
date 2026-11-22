@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}Auditor & Accounts Portal - Order-to-Audit{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div>
+            <h2>📑 Auditor & Accountant Portal</h2>
+            <p style="color:var(--text-muted); font-size:0.9rem;">
+                Logged in as <strong>{{ user.username }}</strong> &bull; Role: <span class="role-badge" style="background:#475569; color:#fff;">Accountant / Auditor</span>
+            </p>
+        </div>
+        <span class="badge badge-read-only">
+            🔒 Read-Only Auditor Access
+        </span>
+    </div>
+</div>
+
+<div class="grid">
+    <div class="feature-card">
+        <h3>📊 Monthly Sales & GST Register</h3>
+        <p>Outward supplies summarized in GSTR-1 / GSTR-3B structure, filterable by date and exportable to CSV/Excel.</p>
+    </div>
+    <div class="feature-card">
+        <h3>📦 Inventory Stock Ledger</h3>
+        <p>Complete itemized movement ledger for raw, packaging, and finished goods linked to source documents.</p>
+    </div>
+    <div class="feature-card">
+        <h3>📉 Production Variance Report</h3>
+        <p>Detailed variance analysis for raw material usage, batch yields, and packaging wastage across runs.</p>
+    </div>
+    <div class="feature-card">
+        <h3>⏳ Customer Receivables & Ageing</h3>
+        <p>Outstanding balances mapped across 30, 60, and 90+ day ageing buckets with full collection history.</p>
+    </div>
+</div>
+{% endblock %}

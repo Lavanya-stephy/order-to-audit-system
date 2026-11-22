@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block title %}403 Forbidden - Access Restricted{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:550px; margin:3rem auto; text-align:center; padding:2.5rem;">
+    <div style="font-size:3rem; margin-bottom:1rem;">🚫</div>
+    <h2 style="color:var(--danger); margin-bottom:0.75rem;">Access Denied (403 Forbidden)</h2>
+    <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;">
+        {{ exception_message|default:"You do not have the required role permissions to view this page." }}
+    </p>
+
+    <div style="background:#f1f5f9; border-radius:6px; padding:0.75rem; margin-bottom:1.5rem; font-size:0.875rem;">
+        Your current role is: <strong>{{ user.get_role_display|default:"Unauthenticated" }}</strong>
+    </div>
+
+    <a href="{% url 'role_redirect' %}" style="display:inline-block; background:var(--primary); color:#ffffff; padding:0.6rem 1.25rem; border-radius:6px; text-decoration:none; font-weight:600;">
+        Return to My Dashboard
+    </a>
+</div>
+{% endblock %}

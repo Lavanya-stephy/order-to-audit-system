@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}Factory Admin Desk - Order-to-Audit{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div>
+            <h2>🏢 Factory Administration Desk</h2>
+            <p style="color:var(--text-muted); font-size:0.9rem;">
+                Logged in as <strong>{{ user.username }}</strong> &bull; Role: <span class="role-badge" style="background:#059669; color:#fff;">Factory Admin</span>
+            </p>
+        </div>
+        <span class="badge" style="background:#d1fae5; color:#065f46; border:1px solid #a7f3d0;">
+            Operations & Billing
+        </span>
+    </div>
+</div>
+
+<div class="grid">
+    <div class="feature-card">
+        <h3>📥 Incoming Orders & Verification</h3>
+        <p>Review orders from field salesmen, verify finished-goods stock coverage, and approve or adjust quantities.</p>
+    </div>
+    <div class="feature-card">
+        <h3>🧾 GST Tax Invoicing</h3>
+        <p>Generate compliant GST tax invoices (CGST/SGST for intra-state TN, IGST for inter-state) and export to PDF.</p>
+    </div>
+    <div class="feature-card">
+        <h3>🚚 Dispatch & Inventory Release</h3>
+        <p>Record vehicle dispatches to automatically deduct finished goods from the stock ledger.</p>
+    </div>
+    <div class="feature-card">
+        <h3>💰 Payment Collection & Receivables</h3>
+        <p>Log incoming customer payments against invoices to track outstanding receivables and ageing.</p>
+    </div>
+</div>
+{% endblock %}

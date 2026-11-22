@@ -81,12 +81,13 @@ Both loops converge to generate the **Auditor's Monthly Pack**:
 Following Section 6 of `PROBLEM.md`, development will be executed in staged phases:
 
 ### Phase 1: Foundation & Master Data
-- [ ] User authentication with Role-Based Access Control (RBAC):
+- [x] User authentication with Role-Based Access Control (RBAC):
   - `Salesman`: Mobile order placement, status tracking, customer-specific sales.
   - `Factory Admin`: Order review, stock verification, GST invoicing, dispatch, payments.
   - `Production Supervisor`: Raw material inward, daily production logging, planned vs actual output.
   - `Accountant / Auditor`: Read-only access to monthly audit packs and export registers.
   - `Owner`: High-level operational dashboard (orders, stock alerts, variances, dues).
+  - Role-based login redirection (`ROLE_DASHBOARD_URLS`) and strict permission decorator (`@role_required`).
 - [ ] Master Data Models:
   - Unit of Measure (`UOM`): kg, g, litre, ml, piece, packet, carton.
   - Items / Products: Classified as Raw Material (`RM`), Packaging Material (`PM`), or Finished Goods (`FG`), with HSN codes, tax rates, standard purchase/selling rates.

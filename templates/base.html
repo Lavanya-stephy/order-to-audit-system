@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Order-to-Audit System{% endblock %}</title>
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --primary-light: #3b82f6;
+            --accent: #d97706;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text-dark: #0f172a;
+            --text-muted: #64748b;
+            --success: #15803d;
+            --danger: #b91c1c;
+            --warning: #b45309;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-dark);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.5;
+        }
+        header {
+            background-color: var(--primary);
+            color: #ffffff;
+            padding: 0.85rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-weight: 700;
+            font-size: 1.15rem;
+            text-decoration: none;
+            color: #ffffff;
+        }
+        .user-nav {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 0.9rem;
+        }
+        .role-badge {
+            background-color: rgba(255, 255, 255, 0.2);
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .btn-logout {
+            background: none;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            color: #ffffff;
+            padding: 0.35rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+        .btn-logout:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        main {
+            flex: 1;
+            padding: 1.5rem;
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            margin-bottom: 1.5rem;
+        }
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-read-only {
+            background-color: #fef3c7;
+            color: var(--warning);
+            border: 1px solid #fde68a;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.25rem;
+            margin-top: 1rem;
+        }
+        .feature-card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.25rem;
+            border-left: 4px solid var(--primary-light);
+        }
+        .feature-card h3 {
+            font-size: 1.05rem;
+            margin-bottom: 0.4rem;
+            color: var(--primary);
+        }
+        .feature-card p {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        footer {
+            background-color: #ffffff;
+            border-top: 1px solid var(--border);
+            padding: 1rem 1.5rem;
+            text-align: center;
+            font-size: 0.825rem;
+            color: var(--text-muted);
+        }
+        @media (max-width: 640px) {
+            header {
+                flex-direction: column;
+                gap: 0.5rem;
+                align-items: flex-start;
+            }
+            .user-nav {
+                width: 100%;
+                justify-content: space-between;
+            }
+            main {
+                padding: 1rem;
+            }
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <header>
+        <a href="{% url 'role_redirect' %}" class="brand">
+            <span>🏭 Order-to-Audit</span>
+        </a>
+        <div class="user-nav">
+            {% if user.is_authenticated %}
+                <span>{{ user.username }}</span>
+                <span class="role-badge">{{ user.get_role_display }}</span>
+                <form action="{% url 'logout' %}" method="post" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-logout">Logout</button>
+                </form>
+            {% else %}
+                <a href="{% url 'login' %}" style="color:#ffffff; text-decoration:none; font-weight:600;">Login</a>
+            {% endif %}
+        </div>
+    </header>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        Order-to-Audit System &bull; Centre for Digital Infrastructure, NIT Tiruchirappalli
+    </footer>
+</body>
+</html>

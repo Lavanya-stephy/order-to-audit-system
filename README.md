@@ -55,16 +55,32 @@ We chose **Python and Django** paired with **SQLite** (switchable to **PostgreSQ
    pip install -r requirements.txt
    ```
 
-4. **Run migrations:**
+4. **Run migrations and seed test users:**
    ```bash
    python manage.py migrate
+   python manage.py create_test_users
    ```
 
-5. **Start development server:**
+5. **Run test suite:**
+   ```bash
+   python manage.py test
+   ```
+
+6. **Start development server:**
    ```bash
    python manage.py runserver
    ```
    Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser.
+
+### Test Logins (Role-Based Access)
+
+| Role | Username | Password | Default Redirect Endpoint | Permission Scope |
+| :--- | :--- | :--- | :--- | :--- |
+| **Salesman** | `salesman` | `salesman123` | `/salesman/` | Mobile order entry, personal order tracking |
+| **Factory Admin** | `admin` | `admin123` | `/admin-dashboard/` | Order verification, GST billing, dispatch, payment recording |
+| **Production Supervisor**| `production`| `production123`| `/production/` | BOM recipes, raw material issue, production logging |
+| **Accountant / Auditor** | `accountant`| `accountant123`| `/audit/` | Read-only monthly reports, GST registers, stock ledgers |
+| **Owner** | `owner` | `owner123` | `/owner/` | High-level executive pulse, variance alerts, cost summary |
 
 ---
 
@@ -90,7 +106,7 @@ To switch from SQLite to PostgreSQL in Docker:
 
 | Tier | Module / Feature | Status |
 | :--- | :--- | :--- |
-| **Must Have** | Role-Based Access Control (Salesman, Admin, Production, Auditor, Owner) | Pending |
+| **Must Have** | Role-Based Access Control (Salesman, Admin, Production, Auditor, Owner) | Completed |
 | **Must Have** | Master Data (Items, BOM, Customers, Suppliers, UOMs) | Pending |
 | **Must Have** | Mobile-responsive Field Order Taking & Admin Approval | Pending |
 | **Must Have** | GST Tax Invoicing (CGST/SGST/IGST) with PDF Download | Pending |

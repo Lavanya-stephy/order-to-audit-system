@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}Production Floor - Order-to-Audit{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div>
+            <h2>⚙️ Production Floor Portal</h2>
+            <p style="color:var(--text-muted); font-size:0.9rem;">
+                Logged in as <strong>{{ user.username }}</strong> &bull; Role: <span class="role-badge" style="background:#7c3aed; color:#fff;">Production Supervisor</span>
+            </p>
+        </div>
+        <span class="badge" style="background:#ede9fe; color:#5b21b6; border:1px solid #ddd6fe;">
+            Floor Management
+        </span>
+    </div>
+</div>
+
+<div class="grid">
+    <div class="feature-card">
+        <h3>📖 Bill of Materials (BOM) Masters</h3>
+        <p>Standard recipes per batch: raw material formulas, packaging requirements, and expected yields.</p>
+    </div>
+    <div class="feature-card">
+        <h3>🏭 Daily Production Runs</h3>
+        <p>Log batch execution, record actual inputs issued, good packet outputs, damaged packaging, and scrap.</p>
+    </div>
+    <div class="feature-card">
+        <h3>📊 Consumption & Yield Variance</h3>
+        <p>Automatic planned vs actual comparison with color-coded alerts on excess consumption or yield drop.</p>
+    </div>
+    <div class="feature-card">
+        <h3>📦 Raw Material Inward Receipts</h3>
+        <p>Log supplier delivery challans and purchase receipts to increase raw-material stock in ledger.</p>
+    </div>
+</div>
+{% endblock %}
