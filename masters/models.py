@@ -122,6 +122,10 @@ class RawMaterial(models.Model):
     def __str__(self):
         return f"{self.name} [{self.code}] ({self.unit.symbol})"
 
+    @property
+    def unit_rate(self) -> Decimal:
+        return self.standard_cost
+
 
 class PackagingItem(models.Model):
     name = models.CharField(max_length=150, unique=True, help_text="e.g. 200 g pouch, Carton (holds 20 pkts)")
@@ -155,6 +159,10 @@ class PackagingItem(models.Model):
 
     def __str__(self):
         return f"{self.name} [{self.code}]"
+
+    @property
+    def unit_rate(self) -> Decimal:
+        return self.standard_cost
 
 
 class Product(models.Model):
@@ -211,6 +219,10 @@ class Product(models.Model):
 
     def __str__(self):
         return f"{self.name} [{self.code}] - ₹{self.selling_price}"
+
+    @property
+    def unit_rate(self) -> Decimal:
+        return self.selling_price
 
     @property
     def cgst_rate(self) -> Decimal:

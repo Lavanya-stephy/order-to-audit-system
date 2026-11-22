@@ -103,7 +103,13 @@ Following Section 6 of `PROBLEM.md`, development will be executed in staged phas
   - Benchmark Murukku 200g BOM (40 kg flour, 10 L oil, 1.2 kg spices, 200 pouches, 10 cartons; 200 pkts yield; ₹19.85/pkt cost).
 
 ### Phase 2: Inventory Ledger & Production Loop (Highest Evaluation Weight)
-- [ ] `StockMovement` append-only ledger model with document linkage (GenericForeignKey or explicit FKs).
+- [x] `StockMovement` append-only ledger model with document linkage:
+  - Signed quantities (+ for inward receipts/yield, - for outward issues/dispatch).
+  - Movement types: `opening`, `purchase`, `production_issue`, `production_output`, `dispatch`, `adjustment`, `return`.
+  - Non-negotiable formula enforced: $\text{Opening Balance} + \text{Inward Receipts} - \text{Outward Issues} = \text{Closing Balance}$.
+  - Real-time stock summary dashboard (`/inventory/summary/`) filterable by category and date range.
+  - Traceable stock ledger audit trail (`/inventory/ledger/`) with running balances and source document references.
+  - Physical audit adjustment recording interface (`/inventory/adjust/`).
 - [ ] Production Run (`ProductionRun` & `ProductionRunItem`):
   - Select finished product and batch quantity.
   - Calculate standard BOM recipe requirements.

@@ -11,9 +11,14 @@
                 Logged in as <strong>{{ user.username }}</strong> &bull; Role: <span class="role-badge" style="background:#059669; color:#fff;">Factory Admin</span>
             </p>
         </div>
-        <span class="badge" style="background:#d1fae5; color:#065f46; border:1px solid #a7f3d0;">
-            Operations & Billing
-        </span>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <a href="{% url 'inventory:stock_summary' %}" style="display:inline-block; background:#0284c7; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                📊 Stock Summary
+            </a>
+            <a href="{% url 'inventory:stock_ledger' %}" style="display:inline-block; background:#334155; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                📜 Stock Ledger
+            </a>
+        </div>
     </div>
 </div>
 
@@ -21,6 +26,9 @@
     <div class="feature-card">
         <h3>📥 Incoming Orders & Verification</h3>
         <p>Review orders from field salesmen, verify finished-goods stock coverage, and approve or adjust quantities.</p>
+        <div style="margin-top:0.75rem;">
+            <a href="{% url 'inventory:stock_summary' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">Check Stock Levels &rarr;</a>
+        </div>
     </div>
     <div class="feature-card">
         <h3>🧾 GST Tax Invoicing</h3>
@@ -29,6 +37,9 @@
     <div class="feature-card">
         <h3>🚚 Dispatch & Inventory Release</h3>
         <p>Record vehicle dispatches to automatically deduct finished goods from the stock ledger.</p>
+        <div style="margin-top:0.75rem;">
+            <a href="{% url 'inventory:stock_ledger' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">View Dispatch Movements in Ledger &rarr;</a>
+        </div>
     </div>
     <div class="feature-card">
         <h3>💰 Payment Collection & Receivables</h3>

@@ -13,6 +13,8 @@ from masters.models import (
     BillOfMaterial,
     BOMLine,
 )
+from inventory.models import StockMovement, MovementType
+from inventory.services import record_movement
 
 
 class Command(BaseCommand):
@@ -216,6 +218,36 @@ class Command(BaseCommand):
                     'gstin': gstin,
                 }
             )
+            sup.save()
             self.stdout.write(f"Supplier: {sup}")
 
-        self.stdout.write(self.style.SUCCESS("Successfully seeded master data!"))
+        # 8. Benchmark Section 5 Opening Stock
+        # Flour: 100 kg, Oil: 30 L, Spice: 5 kg, Pouches: 500, Cartons: 30, Murukku 200g: 50 packets
+        opening_items = [
+            (raw_flour, Decimal('100.0000'), units['kg']),
+            (raw_oil, Decimal('30.0000'), units['litre']),
+            (raw_spice, Decimal('5.0000'), units['kg']),
+            (pm_pouch, Decimal('500.0000'), units['piece']),
+            (pm_carton, Decimal('30.0000'), units['piece']),
+            (product, Decimal('50.0000'), units['packet']),
+        ]
+        for itm, qty, u in opening_items:
+            already_recorded = False
+            if hasattr(itm, 'stock_movements'):
+                already_recorded = itm.stock_movements.filter(
+                    movement_type=MovementType.OPENING,
+                    source_document='OPENING-BENCHMARK-2026'
+                ).exists()
+
+            if not already_recorded:
+                m = record_movement(
+                    item=itm,
+                    quantity=qty,
+                    movement_type=MovementType.OPENING,
+                    source_document='OPENING-BENCHMARK-2026',
+                    unit=u,
+                    notes='Section 5 Benchmark Opening Stock'
+                )
+                self.stdout.write(f"Opening Stock Movement: {m}")
+
+        self.stdout.write(self.style.SUCCESS("Successfully seeded master data and opening stock!"))

@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+
+{% block title %}Stock Summary - Order-to-Audit{% endblock %}
+
+{% block extra_head %}
+<style>
+    .filter-bar {
+        background: #f1f5f9;
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .filter-group label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-dark);
+    }
+    .filter-input {
+        padding: 0.4rem 0.6rem;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        font-size: 0.85rem;
+        background: #ffffff;
+    }
+    .kpi-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    .stock-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+        margin-top: 1rem;
+    }
+    .stock-table th, .stock-table td {
+        padding: 0.65rem 0.8rem;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+    }
+    .stock-table th {
+        background-color: #f8fafc;
+        font-weight: 600;
+        color: var(--text-dark);
+    }
+    .stock-table tr:hover {
+        background-color: #fcfcfc;
+    }
+    .num {
+        text-align: right;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div>
+            <h2>📦 Inventory Stock Summary</h2>
+            <p style="color:var(--text-muted); font-size:0.9rem;">
+                Derived balance verification: <strong>Opening + Inward Receipts − Outward Issues = Closing Balance</strong>.
+            </p>
+        </div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+            <a href="{% url 'inventory:stock_ledger' %}" style="display:inline-block; background:#0284c7; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                📜 View Item Ledger
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="kpi-row">
+    <div class="feature-card" style="border-left-color: #2563eb;">
+        <span style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Tracked Inventory Items</span>
+        <h3 style="font-size:1.5rem; margin-top:0.25rem;">{{ total_items_count }}</h3>
+        <p style="font-size:0.75rem; color:var(--text-muted);">Raw materials, packaging, finished snacks</p>
+    </div>
+
+    <div class="feature-card" style="border-left-color: #10b981;">
+        <span style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Total Stock Valuation</span>
+        <h3 style="font-size:1.5rem; margin-top:0.25rem; color:var(--success);">₹{{ total_valuation }}</h3>
+        <p style="font-size:0.75rem; color:var(--text-muted);">Valued at standard purchase / selling rates</p>
+    </div>
+
+    <div class="feature-card" style="border-left-color: {% if low_stock_count > 0 %}#dc2626{% else %}#64748b{% endif %};">
+        <span style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; font-weight:600;">Reorder Alerts</span>
+        <h3 style="font-size:1.5rem; margin-top:0.25rem; {% if low_stock_count > 0 %}color:var(--danger);{% endif %}">{{ low_stock_count }}</h3>
+        <p style="font-size:0.75rem; color:var(--text-muted);">Items at or below reorder threshold</p>
+    </div>
+</div>
+
+<form method="get" class="filter-bar">
+    <div class="filter-group">
+        <label for="id_category">Category:</label>
+        <select name="category" id="id_category" class="filter-input" onchange="this.form.submit()">
+            <option value="all" {% if selected_category == 'all' %}selected{% endif %}>All Inventory Categories</option>
+            <option value="raw_material" {% if selected_category == 'raw_material' %}selected{% endif %}>Raw Materials (Flour, Oil, Spices)</option>
+            <option value="packaging" {% if selected_category == 'packaging' %}selected{% endif %}>Packaging (Pouches, Cartons)</option>
+            <option value="product" {% if selected_category == 'product' %}selected{% endif %}>Finished Snacks (Murukku, etc.)</option>
+        </select>
+    </div>
+
+    <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+        <div class="filter-group">
+            <label for="id_start_date">From:</label>
+            <input type="date" name="start_date" id="id_start_date" value="{{ start_date }}" class="filter-input">
+        </div>
+        <div class="filter-group">
+            <label for="id_end_date">To:</label>
+            <input type="date" name="end_date" id="id_end_date" value="{{ end_date }}" class="filter-input">
+        </div>
+        <button type="submit" style="background:#334155; color:#ffffff; border:none; padding:0.4rem 0.8rem; border-radius:4px; font-size:0.85rem; font-weight:600; cursor:pointer;">
+            Filter
+        </button>
+        {% if start_date or end_date or selected_category != 'all' %}
+            <a href="{% url 'inventory:stock_summary' %}" style="color:var(--text-muted); font-size:0.85rem; text-decoration:none;">
+                Reset
+            </a>
+        {% endif %}
+    </div>
+</form>
+
+<div class="card" style="padding:0; overflow-x:auto;">
+    <table class="stock-table">
+        <thead>
+            <tr>
+                <th>Item Description</th>
+                <th>SKU Code</th>
+                <th>Category</th>
+                <th>UOM</th>
+                <th class="num">Opening</th>
+                <th class="num" style="color:var(--success);">Inward Receipts (+)</th>
+                <th class="num" style="color:var(--danger);">Outward Issues (−)</th>
+                <th class="num" style="font-weight:700;">Closing Balance</th>
+                <th class="num">Reorder Lvl</th>
+                <th>Status</th>
+                <th style="text-align:right;">Ledger Audit</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in summary_rows %}
+                <tr>
+                    <td style="font-weight:600;">
+                        <a href="{% url 'inventory:stock_ledger' %}?item={{ row.id_str }}" style="color:var(--primary); text-decoration:none;">
+                            {{ row.name }}
+                        </a>
+                    </td>
+                    <td><span style="font-family:monospace; background:#f1f5f9; padding:0.15rem 0.4rem; border-radius:3px;">{{ row.code }}</span></td>
+                    <td>{{ row.type_name }}</td>
+                    <td>{{ row.unit.symbol }}</td>
+                    <td class="num">{{ row.opening }}</td>
+                    <td class="num" style="color:var(--success); font-weight:600;">
+                        {% if row.receipts > 0 %}+{{ row.receipts }}{% else %}{{ row.receipts }}{% endif %}
+                    </td>
+                    <td class="num" style="color:var(--danger); font-weight:600;">
+                        {% if row.issues > 0 %}−{{ row.issues }}{% else %}{{ row.issues }}{% endif %}
+                    </td>
+                    <td class="num" style="font-weight:700; font-size:0.95rem; color:var(--text-dark);">
+                        {{ row.closing }}
+                    </td>
+                    <td class="num" style="color:var(--text-muted);">
+                        {% if row.reorder_level > 0 %}{{ row.reorder_level }}{% else %}—{% endif %}
+                    </td>
+                    <td>
+                        {% if row.is_low_stock %}
+                            <span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;">
+                                ⚠️ Low Stock
+                            </span>
+                        {% else %}
+                            <span class="badge" style="background:#dcfce7; color:#15803d;">
+                                Normal
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right;">
+                        <a href="{% url 'inventory:stock_ledger' %}?item={{ row.id_str }}" style="color:#0284c7; font-weight:600; text-decoration:none;">
+                            Ledger &rarr;
+                        </a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="11" style="padding:2rem; text-align:center; color:var(--text-muted);">
+                        No stock records found matching filters.
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

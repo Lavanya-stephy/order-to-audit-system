@@ -160,7 +160,13 @@
         <div class="user-nav">
             {% if user.is_authenticated %}
                 {% if user.role != 'salesman' %}
-                    <a href="{% url 'masters:hub' %}" style="color:#ffffff; text-decoration:none; margin-right:0.5rem; font-weight:500;">
+                    <a href="{% url 'inventory:stock_summary' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
+                        📊 Stock Summary
+                    </a>
+                    <a href="{% url 'inventory:stock_ledger' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
+                        📜 Stock Ledger
+                    </a>
+                    <a href="{% url 'masters:hub' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
                         📁 Master Data
                     </a>
                 {% endif %}

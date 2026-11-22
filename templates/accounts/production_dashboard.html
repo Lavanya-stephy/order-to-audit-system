@@ -11,9 +11,14 @@
                 Logged in as <strong>{{ user.username }}</strong> &bull; Role: <span class="role-badge" style="background:#7c3aed; color:#fff;">Production Supervisor</span>
             </p>
         </div>
-        <span class="badge" style="background:#ede9fe; color:#5b21b6; border:1px solid #ddd6fe;">
-            Floor Management
-        </span>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <a href="{% url 'inventory:stock_summary' %}" style="display:inline-block; background:#0284c7; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                📊 Stock Summary
+            </a>
+            <a href="{% url 'inventory:stock_ledger' %}" style="display:inline-block; background:#334155; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                📜 Stock Ledger
+            </a>
+        </div>
     </div>
 </div>
 
@@ -21,6 +26,9 @@
     <div class="feature-card">
         <h3>📖 Bill of Materials (BOM) Masters</h3>
         <p>Standard recipes per batch: raw material formulas, packaging requirements, and expected yields.</p>
+        <div style="margin-top:0.75rem;">
+            <a href="{% url 'masters:bom_list' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">View & Manage BOMs &rarr;</a>
+        </div>
     </div>
     <div class="feature-card">
         <h3>🏭 Daily Production Runs</h3>
@@ -31,8 +39,12 @@
         <p>Automatic planned vs actual comparison with color-coded alerts on excess consumption or yield drop.</p>
     </div>
     <div class="feature-card">
-        <h3>📦 Raw Material Inward Receipts</h3>
+        <h3>📦 Raw Material Inward Receipts & Stock</h3>
         <p>Log supplier delivery challans and purchase receipts to increase raw-material stock in ledger.</p>
+        <div style="margin-top:0.75rem; display:flex; gap:0.75rem;">
+            <a href="{% url 'inventory:stock_summary' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">Stock Summary &rarr;</a>
+            <a href="{% url 'inventory:stock_ledger' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">Item Ledger &rarr;</a>
+        </div>
     </div>
 </div>
 {% endblock %}

@@ -11,9 +11,17 @@
                 Logged in as <strong>{{ user.username }}</strong> &bull; Role: <span class="role-badge" style="background:#b45309; color:#fff;">Owner</span>
             </p>
         </div>
-        <span class="badge" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">
-            Executive Pulse
-        </span>
+        <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+            <span class="badge" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">
+                Executive Pulse
+            </span>
+            <a href="{% url 'inventory:stock_summary' %}" style="display:inline-block; background:#0284c7; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                📊 Stock Summary
+            </a>
+            <a href="{% url 'inventory:stock_ledger' %}" style="display:inline-block; background:#334155; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                📜 Stock Ledger
+            </a>
+        </div>
     </div>
 </div>
 
@@ -31,8 +39,12 @@
         <p>Dynamic packet costing combining BOM purchase rates with allocated factory labour and power overheads.</p>
     </div>
     <div class="feature-card">
-        <h3>💵 Cash Flow & Outstanding</h3>
-        <p>Total pending receivables, distributor dues, and working capital locked in raw vs finished goods.</p>
+        <h3>💵 Cash Flow & Stock Holdings</h3>
+        <p>Total pending receivables, distributor dues, and working capital locked in raw materials vs finished goods.</p>
+        <div style="margin-top:0.75rem; display:flex; gap:0.75rem;">
+            <a href="{% url 'inventory:stock_summary' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">Stock Summary &rarr;</a>
+            <a href="{% url 'inventory:stock_ledger' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">Stock Ledger &rarr;</a>
+        </div>
     </div>
 </div>
 {% endblock %}

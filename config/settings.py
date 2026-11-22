@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     # Project apps
     'accounts.apps.AccountsConfig',
     'masters.apps.MastersConfig',
+    'inventory.apps.InventoryConfig',
 ]
 
 MIDDLEWARE = [

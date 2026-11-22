@@ -108,6 +108,7 @@ To switch from SQLite to PostgreSQL in Docker:
 | :--- | :--- | :--- |
 | **Must Have** | Role-Based Access Control (Salesman, Admin, Production, Auditor, Owner) | Completed |
 | **Must Have** | Master Data (Items, BOM, Customers, Suppliers, UOMs with Conversion) | Completed |
+| **Must Have** | Append-only Stock Summary & Itemized Stock Ledger | Completed |
 | **Must Have** | Mobile-responsive Field Order Taking & Admin Approval | Pending |
 | **Must Have** | GST Tax Invoicing (CGST/SGST/IGST) with PDF Download | Pending |
 | **Must Have** | Recipe-based Production Run (Auto-stock updates for RM and FG) | Pending |
