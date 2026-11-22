@@ -84,11 +84,40 @@ class SalesOrder(models.Model):
     def check_stock_coverage(self):
         """
         Evaluates finished-goods stock coverage for each product line.
-        Returns a dict containing:
-          - is_fully_covered: bool
-          - lines: list of dicts with stock info per line
-          - total_shortage: total packets short
+        Stock coverage is ONLY calculated for pending orders:
+          - Submitted
+          - Approved
+          - Invoiced (not yet dispatched)
+
+        For Dispatched orders, stock has already been deducted; returns
+        is_dispatched=True with no shortage.
         """
+        is_invoiced_not_dispatched = (
+            self.status == OrderStatus.INVOICED
+            and not getattr(getattr(self, 'invoice', None), 'is_dispatched', False)
+        )
+        is_pending = self.status in [OrderStatus.SUBMITTED, OrderStatus.APPROVED] or is_invoiced_not_dispatched
+
+        if self.status == OrderStatus.DISPATCHED:
+            dispatched_date = getattr(getattr(self, 'invoice', None), 'dispatched_at', None) or self.updated_at
+            return {
+                'is_applicable': False,
+                'is_dispatched': True,
+                'is_fully_covered': True,
+                'total_shortage': Decimal('0.00'),
+                'lines': [],
+                'dispatched_date': dispatched_date,
+            }
+
+        if not is_pending:
+            return {
+                'is_applicable': False,
+                'is_dispatched': False,
+                'is_fully_covered': True,
+                'total_shortage': Decimal('0.00'),
+                'lines': [],
+            }
+
         lines_info = []
         is_fully_covered = True
         total_shortage = Decimal('0.00')
@@ -96,7 +125,7 @@ class SalesOrder(models.Model):
         for line in self.lines.select_related('product', 'product__unit').all():
             available = get_item_current_stock(line.product)
             covered = available >= line.quantity
-            shortage = max(Decimal('0.00'), line.quantity - available)
+            shortage = max(Decimal('0.00'), line.quantity - available) if not covered else Decimal('0.00')
             if not covered:
                 is_fully_covered = False
                 total_shortage += shortage
@@ -111,6 +140,8 @@ class SalesOrder(models.Model):
             })
 
         return {
+            'is_applicable': True,
+            'is_dispatched': False,
             'is_fully_covered': is_fully_covered,
             'lines': lines_info,
             'total_shortage': total_shortage,
@@ -195,10 +226,14 @@ class SalesOrderLine(models.Model):
 
     @property
     def is_covered(self) -> bool:
+        if self.order.status == OrderStatus.DISPATCHED:
+            return True
         return self.get_available_stock() >= self.quantity
 
     @property
     def shortage(self) -> Decimal:
+        if self.order.status == OrderStatus.DISPATCHED:
+            return Decimal('0.00')
         return max(Decimal('0.00'), self.quantity - self.get_available_stock())
 
     def __str__(self):

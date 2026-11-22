@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'purchases.apps.PurchasesConfig',
     'production.apps.ProductionConfig',
     'orders.apps.OrdersConfig',
+    'invoices.apps.InvoicesConfig',
 ]
 
 MIDDLEWARE = [
@@ -164,3 +165,13 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+# Factory (Seller) Details
+FACTORY_NAME = "Demo Snacks Pvt Ltd"
+FACTORY_ADDRESS = "12 Industrial Estate, Tiruchirappalli - 620001, Tamil Nadu"
+FACTORY_STATE = "Tamil Nadu (33)"
+FACTORY_STATE_NAME = "Tamil Nadu"
+FACTORY_STATE_CODE = "33"
+FACTORY_GSTIN = "33AAAAA0000A1Z5"
+FACTORY_EVALUATION_NOTE = "All data in this system is dummy data for evaluation."
+

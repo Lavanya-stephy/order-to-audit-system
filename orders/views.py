@@ -192,6 +192,7 @@ def order_detail_view(request, pk):
         'coverage': coverage,
         'can_edit': (request.user.role == Role.ADMIN or request.user.is_superuser) and order.status in [OrderStatus.SUBMITTED, OrderStatus.APPROVED],
         'can_approve_reject': (request.user.role == Role.ADMIN or request.user.is_superuser) and order.status == OrderStatus.SUBMITTED,
+        'can_generate_invoice': (request.user.role == Role.ADMIN or request.user.is_superuser) and order.status == OrderStatus.APPROVED,
     })
 
 

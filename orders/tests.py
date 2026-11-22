@@ -420,3 +420,105 @@ class SalesOrderTests(TestCase):
         content = res.content.decode()
         self.assertIn('View Stock Ledger', content)
         self.assertIn('Current Stock in Ledger', content)
+
+    def test_dispatched_order_shows_no_shortage_and_neutral_message(self):
+        """
+        For Dispatched orders:
+        - stock coverage check is not calculated as shortage (total_shortage == 0, is_fully_covered == True)
+        - Detail page displays neutral message 'Dispatched: 150 packets deducted from stock on <date>'
+        - Detail page includes a link to the ledger entry for non-salesmen
+        - No shortage banner is shown
+        """
+        # Set up 238 pkts initial stock
+        record_movement(
+            item=self.product,
+            quantity=Decimal('238.00'),
+            movement_type=MovementType.PRODUCTION_OUTPUT,
+            source_document='PR-BENCHMARK-RUN-01',
+        )
+        order = create_sales_order(
+            salesman=self.salesman_a,
+            customer=self.retailer_a,
+            lines_data=[{'product': self.product, 'quantity': Decimal('150.00')}],
+        )
+        approve_sales_order(order, self.admin)
+        from invoices.services import generate_invoice, dispatch_invoice
+        invoice = generate_invoice(order, self.admin)
+        dispatch_invoice(invoice, self.admin)
+
+        order.refresh_from_db()
+        self.assertEqual(order.status, OrderStatus.DISPATCHED)
+        # Current stock is now 88 (238 - 150)
+        self.assertEqual(get_item_current_stock(self.product), Decimal('88.00'))
+
+        # Check coverage logic: must NOT flag shortage of 62 pkts
+        cov = order.check_stock_coverage()
+        self.assertFalse(cov['is_applicable'])
+        self.assertTrue(cov['is_dispatched'])
+        self.assertTrue(cov['is_fully_covered'])
+        self.assertEqual(cov['total_shortage'], Decimal('0.00'))
+        self.assertTrue(order.is_stock_covered)
+
+        # Admin client views order detail page
+        admin_client = Client()
+        admin_client.login(username='admin_user', password=self.password)
+        res = admin_client.get(reverse('orders:order_detail', kwargs={'pk': order.pk}))
+        self.assertEqual(res.status_code, 200)
+        content = res.content.decode()
+
+        # Must display neutral message
+        self.assertIn("Dispatched: 150 packets deducted from stock on", content)
+        # Must link to the ledger entry
+        self.assertIn("View Ledger Entry", content)
+        self.assertIn(reverse('inventory:stock_ledger'), content)
+        # Must NOT show shortage banner
+        self.assertNotIn("Stock Shortage Flagged", content)
+        self.assertNotIn("Shortage of 62 packets", content)
+
+        # In admin incoming orders list, should show Dispatched pill and no shortage
+        res_list = admin_client.get(reverse('orders:admin_order_list'))
+        self.assertEqual(res_list.status_code, 200)
+        content_list = res_list.content.decode()
+        self.assertIn("Dispatched (Deducted)", content_list)
+
+    def test_pending_order_shows_exact_shortage_when_stock_insufficient(self):
+        """
+        For a pending order (Submitted/Approved/Invoiced before dispatch):
+        shortage = requested quantity minus current stock, only when positive.
+        Distributor B's 120-packet order must show a shortage of exactly 32 when stock is 88.
+        """
+        # Ensure stock is exactly 88 packets
+        record_movement(
+            item=self.product,
+            quantity=Decimal('88.00'),
+            movement_type=MovementType.PRODUCTION_OUTPUT,
+            source_document='PR-BENCHMARK-RUN-INIT',
+        )
+        self.assertEqual(get_item_current_stock(self.product), Decimal('88.00'))
+
+        # Distributor B places 120 packets order
+        order_120 = create_sales_order(
+            salesman=self.salesman_b,
+            customer=self.distributor_b,
+            lines_data=[{'product': self.product, 'quantity': Decimal('120.00')}],
+        )
+        self.assertEqual(order_120.status, OrderStatus.SUBMITTED)
+
+        cov = order_120.check_stock_coverage()
+        self.assertTrue(cov['is_applicable'])
+        self.assertFalse(cov['is_fully_covered'])
+        self.assertEqual(cov['total_shortage'], Decimal('32.00'))
+        self.assertEqual(cov['lines'][0]['shortage'], Decimal('32.00'))
+        self.assertEqual(cov['lines'][0]['available_stock'], Decimal('88.00'))
+        self.assertEqual(cov['lines'][0]['requested_qty'], Decimal('120.00'))
+        self.assertFalse(order_120.is_stock_covered)
+
+        # Admin view should show shortage banner with 32 packets
+        admin_client = Client()
+        admin_client.login(username='admin_user', password=self.password)
+        res = admin_client.get(reverse('orders:order_detail', kwargs={'pk': order_120.pk}))
+        self.assertEqual(res.status_code, 200)
+        content = res.content.decode()
+        self.assertIn("Stock Shortage Flagged! Shortage of 32 packets", content)
+        self.assertIn("32 pkts short!", content)
+

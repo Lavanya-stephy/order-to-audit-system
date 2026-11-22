@@ -170,6 +170,9 @@
                     <a href="{% url 'orders:admin_order_list' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
                         📥 Orders
                     </a>
+                    <a href="{% url 'invoices:invoice_list' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
+                        🧾 Invoices
+                    </a>
                     {% endif %}
                     {% if user.role == 'admin' or user.role == 'production' or user.is_superuser %}
                     <a href="{% url 'purchases:purchase_list' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
@@ -207,7 +210,7 @@
     </main>
 
     <footer>
-        Order-to-Audit System &bull; Centre for Digital Infrastructure, NIT Tiruchirappalli
+        Order-to-Audit System &bull; Demo Snacks Pvt Ltd &bull; 12 Industrial Estate, Tiruchirappalli - 620001 &bull; All data in this system is dummy data for evaluation.
     </footer>
 </body>
 </html>

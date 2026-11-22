@@ -33,6 +33,15 @@ class Command(BaseCommand):
         self.stdout.write("==================================================")
 
         # ---------------------------------------------------------------------
+        # 0. Factory / Seller Configuration Information
+        # ---------------------------------------------------------------------
+        self.stdout.write("🏭 Seller Configuration (Demo Snacks Pvt Ltd):")
+        self.stdout.write("  Name: Demo Snacks Pvt Ltd")
+        self.stdout.write("  Address: 12 Industrial Estate, Tiruchirappalli - 620001, Tamil Nadu")
+        self.stdout.write("  State: Tamil Nadu (33) | GSTIN: 33AAAAA0000A1Z5")
+        self.stdout.write("  Evaluation Note: All data in this system is dummy data for evaluation.")
+
+        # ---------------------------------------------------------------------
         # 1. Users: Role-based benchmark users
         # ---------------------------------------------------------------------
         users_data = [

@@ -175,7 +175,13 @@
                                 <strong>₹{{ order.grand_total }}</strong>
                             </td>
                             <td>
-                                {% if cov.is_fully_covered %}
+                                {% if order.status == 'dispatched' or cov.is_dispatched %}
+                                    <span class="coverage-dispatched" style="color:#0f766e; background:#ccfbf1; border:1px solid #99f6e4; padding:0.25rem 0.6rem; border-radius:4px; font-weight:600; font-size:0.8rem;" title="Dispatched: {{ order.total_quantity|floatformat:0 }} packets deducted from stock">
+                                        🚚 Dispatched (Deducted)
+                                    </span>
+                                {% elif order.status == 'rejected' %}
+                                    <span style="color:#94a3b8; font-size:0.8rem;">—</span>
+                                {% elif cov.is_fully_covered %}
                                     <span class="coverage-covered" title="Finished-goods stock fully covers this order">
                                         ✅ Stock Covered
                                     </span>

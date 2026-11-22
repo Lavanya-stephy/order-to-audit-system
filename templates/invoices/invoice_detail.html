@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+{% block title %}{{ invoice.invoice_number }} — Tax Invoice{% endblock %}
+
+{% block extra_head %}
+<style>
+    .inv-header { background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); color: #fff; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.25rem; }
+    .inv-meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; }
+    .inv-meta-box { background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; padding: 0.9rem 1rem; }
+    .inv-meta-label { font-size: 0.72rem; text-transform: uppercase; font-weight: 700; color: var(--text-muted); margin-bottom: 0.3rem; }
+    .inv-meta-val { font-size: 1rem; font-weight: 700; color: var(--text-dark); }
+    .lines-tbl { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    .lines-tbl th { padding: 0.6rem 0.75rem; background: #1e3a8a; color: #fff; font-size: 0.78rem; text-align: left; }
+    .lines-tbl td { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); }
+    .lines-tbl tr:nth-child(even) td { background: #f8fafc; }
+    .totals-row { display: flex; justify-content: flex-end; }
+    .totals-box { min-width: 320px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    .totals-box-row { display: flex; justify-content: space-between; padding: 0.5rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    .totals-box-row:last-child { border-bottom: none; font-weight: 800; font-size: 1rem; background: #1e3a8a; color: #fff; }
+    .badge { display: inline-block; padding: 0.3rem 0.75rem; border-radius: 9999px; font-size: 0.82rem; font-weight: 700; }
+    .badge-posted    { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+    .badge-cancelled { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+    .btn-primary   { background: #2563eb; color: #fff; border: none; padding: 0.55rem 1.1rem; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 0.9rem; text-decoration: none; display: inline-block; }
+    .btn-success   { background: #16a34a; color: #fff; border: none; padding: 0.55rem 1.1rem; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 0.9rem; }
+    .btn-danger    { background: #dc2626; color: #fff; border: none; padding: 0.55rem 1.1rem; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 0.9rem; }
+    .btn-secondary { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 0.55rem 1.1rem; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.9rem; text-decoration: none; display: inline-block; }
+    .alert-cancelled { background: #fee2e2; border: 1px solid #fca5a5; border-radius: 6px; padding: 0.9rem 1rem; color: #991b1b; margin-bottom: 1.25rem; }
+    .alert-dispatched { background: #dcfce7; border: 1px solid #bbf7d0; border-radius: 6px; padding: 0.75rem 1rem; color: #15803d; margin-bottom: 1.25rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Page heading -->
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
+    <div>
+        <h2 style="font-size:1.45rem; margin:0;">{{ invoice.invoice_number }}</h2>
+        <p style="color:var(--text-muted); font-size:0.875rem; margin-top:0.2rem;">
+            GST Tax Invoice · {{ invoice.invoice_date|date:"d M Y" }}
+        </p>
+    </div>
+    <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+        <span class="badge badge-{{ invoice.status }}">{{ invoice.get_status_display }}</span>
+        {% if invoice.is_interstate %}
+            <span style="background:#ede9fe; color:#7c3aed; border:1px solid #c4b5fd;" class="badge">IGST</span>
+        {% else %}
+            <span style="background:#dbeafe; color:#1d4ed8; border:1px solid #bfdbfe;" class="badge">CGST+SGST</span>
+        {% endif %}
+        <a href="{% url 'invoices:invoice_pdf' invoice.pk %}" class="btn-primary">⬇ Download PDF</a>
+        <a href="{% url 'invoices:invoice_list' %}" class="btn-secondary">← All Invoices</a>
+    </div>
+</div>
+
+{% if invoice.status == 'cancelled' %}
+<div class="alert-cancelled">
+    ❌ <strong>Cancelled</strong> — Credit Note: <strong>{{ invoice.credit_note_number }}</strong>
+    {% if invoice.cancelled_at %} · {{ invoice.cancelled_at|date:"d M Y, H:i" }}{% endif %}
+    {% if invoice.cancelled_by %} by <strong>{{ invoice.cancelled_by.username }}</strong>{% endif %}
+    <br/>Reason: {{ invoice.cancellation_reason }}
+</div>
+{% elif invoice.is_dispatched %}
+<div class="alert-dispatched">
+    ✅ <strong>Dispatched</strong> — {{ invoice.dispatch_ledger_note }}
+</div>
+{% endif %}
+
+<!-- Supplier / Customer / Order meta -->
+<div class="inv-meta-grid" style="margin-bottom:1.25rem;">
+    <div class="inv-meta-box">
+        <div class="inv-meta-label">Customer</div>
+        <div class="inv-meta-val">{{ invoice.customer.name }}</div>
+        <div style="font-size:0.82rem; color:var(--text-muted); margin-top:0.2rem;">
+            {{ invoice.customer.get_customer_type_display }} · {{ invoice.customer.state }} ({{ invoice.customer.state_code }})
+        </div>
+        {% if invoice.customer_gstin %}
+        <div style="font-size:0.8rem; font-family:monospace; margin-top:0.15rem;">GSTIN: {{ invoice.customer_gstin }}</div>
+        {% endif %}
+    </div>
+    <div class="inv-meta-box">
+        <div class="inv-meta-label">Order Reference</div>
+        <div class="inv-meta-val">
+            <a href="{% url 'orders:order_detail' invoice.order.pk %}" style="color:var(--primary);">{{ invoice.order.order_number }}</a>
+        </div>
+        <div style="font-size:0.82rem; color:var(--text-muted); margin-top:0.2rem;">
+            Salesman: {{ invoice.order.salesman.username }} · {{ invoice.order.order_date|date:"d M Y" }}
+        </div>
+    </div>
+    <div class="inv-meta-box">
+        <div class="inv-meta-label">Tax Type</div>
+        {% if invoice.is_interstate %}
+            <div class="inv-meta-val" style="color:#7c3aed;">Inter-state (IGST)</div>
+            <div style="font-size:0.82rem; color:var(--text-muted); margin-top:0.2rem;">Full GST applied as IGST</div>
+        {% else %}
+            <div class="inv-meta-val" style="color:#1d4ed8;">Intra-state Tamil Nadu</div>
+            <div style="font-size:0.82rem; color:var(--text-muted); margin-top:0.2rem;">CGST + SGST (each half)</div>
+        {% endif %}
+    </div>
+    <div class="inv-meta-box">
+        <div class="inv-meta-label">Generated By</div>
+        <div class="inv-meta-val">{{ invoice.created_by.username|default:"system" }}</div>
+        <div style="font-size:0.82rem; color:var(--text-muted); margin-top:0.2rem;">{{ invoice.created_at|date:"d M Y, H:i" }}</div>
+    </div>
+</div>
+
+<!-- Line Items -->
+<div class="card" style="padding:0; overflow-x:auto; margin-bottom:1.25rem;">
+    <div style="padding:1rem 1.25rem; border-bottom:1px solid var(--border);">
+        <h3 style="margin:0; font-size:1.05rem; color:var(--primary);">📦 Invoice Line Items</h3>
+    </div>
+    <table class="lines-tbl">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Product (HSN)</th>
+                <th>Qty</th>
+                <th>Unit</th>
+                <th style="text-align:right;">Rate (₹)</th>
+                <th style="text-align:right;">Taxable (₹)</th>
+                {% if invoice.is_interstate %}
+                    <th style="text-align:right;">IGST %</th>
+                    <th style="text-align:right;">IGST (₹)</th>
+                {% else %}
+                    <th style="text-align:right;">CGST %</th>
+                    <th style="text-align:right;">CGST (₹)</th>
+                    <th style="text-align:right;">SGST %</th>
+                    <th style="text-align:right;">SGST (₹)</th>
+                {% endif %}
+                <th style="text-align:right;">Total (₹)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for line in invoice.lines.all %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>
+                    <div style="font-weight:600;">{{ line.product.name }}</div>
+                    <div style="font-size:0.75rem; color:var(--text-muted);">HSN: {{ line.hsn_code }}</div>
+                </td>
+                <td><strong>{{ line.quantity|floatformat:0 }}</strong></td>
+                <td>{{ line.unit.symbol }}</td>
+                <td style="text-align:right;">{{ line.unit_price }}</td>
+                <td style="text-align:right;">{{ line.taxable_value }}</td>
+                {% if invoice.is_interstate %}
+                    <td style="text-align:right;">{{ line.igst_rate }}%</td>
+                    <td style="text-align:right;">{{ line.igst_amount }}</td>
+                {% else %}
+                    <td style="text-align:right;">{{ line.cgst_rate }}%</td>
+                    <td style="text-align:right;">{{ line.cgst_amount }}</td>
+                    <td style="text-align:right;">{{ line.sgst_rate }}%</td>
+                    <td style="text-align:right;">{{ line.sgst_amount }}</td>
+                {% endif %}
+                <td style="text-align:right; font-weight:700;">{{ line.line_total }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Totals -->
+<div class="totals-row" style="margin-bottom:1.5rem;">
+    <div class="totals-box">
+        <div class="totals-box-row">
+            <span>Taxable Value</span><span>₹{{ invoice.taxable_value }}</span>
+        </div>
+        {% if invoice.is_interstate %}
+            <div class="totals-box-row">
+                <span>IGST</span><span>₹{{ invoice.igst_amount }}</span>
+            </div>
+        {% else %}
+            <div class="totals-box-row">
+                <span>CGST</span><span>₹{{ invoice.cgst_amount }}</span>
+            </div>
+            <div class="totals-box-row">
+                <span>SGST</span><span>₹{{ invoice.sgst_amount }}</span>
+            </div>
+        {% endif %}
+        <div class="totals-box-row">
+            <span>GRAND TOTAL</span><span>₹{{ invoice.grand_total }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- Admin Actions -->
+{% if can_manage %}
+<div class="card" style="border-left:4px solid #f59e0b;">
+    <h3 style="font-size:1rem; color:var(--primary); margin-bottom:0.75rem;">⚙️ Invoice Actions</h3>
+    <div style="display:flex; flex-wrap:wrap; gap:1rem; align-items:flex-end;">
+
+        {% if can_dispatch %}
+        <form action="{% url 'invoices:invoice_dispatch' invoice.pk %}" method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn-success" onclick="return confirm('Dispatch this order? This will deduct finished-goods stock in the ledger.');">
+                🚚 Dispatch &amp; Update Stock Ledger
+            </button>
+        </form>
+        {% endif %}
+
+        {% if can_cancel %}
+        <form action="{% url 'invoices:invoice_cancel' invoice.pk %}" method="post" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+            {% csrf_token %}
+            <input type="text" name="cancellation_reason" placeholder="Cancellation reason (required)"
+                   style="padding:0.5rem; border:1px solid var(--border); border-radius:4px; font-size:0.85rem; min-width:260px;">
+            <button type="submit" class="btn-danger" onclick="return confirm('Cancel this invoice and issue a credit note? This cannot be undone.');">
+                ❌ Cancel &amp; Issue Credit Note
+            </button>
+        </form>
+        {% endif %}
+
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
