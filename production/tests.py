@@ -9,7 +9,7 @@ from inventory.models import StockMovement, MovementType
 from inventory.services import record_movement, get_item_current_stock
 from purchases.models import PurchaseOrder, PurchaseOrderLine
 from purchases.services import receive_purchase_order
-from production.models import ProductionRun, ProductionRunItem
+from production.models import ProductionRun, ProductionRunItem, ProductionRunLog
 from production.services import (
     create_production_run,
     issue_materials_for_run,
@@ -120,6 +120,12 @@ class BenchmarkProductionRunTests(TestCase):
         self.assertEqual(run.status, ProductionRun.Status.DRAFT)
         self.assertEqual(run.expected_yield, 200)
 
+        # Verify creation audit log
+        create_log = run.audit_logs.filter(action='Created').first()
+        self.assertIsNotNone(create_log)
+        self.assertEqual(create_log.user, self.user)
+        self.assertIsNotNone(create_log.timestamp)
+
         # Issue actual materials: 40 kg flour, 10.5 L oil (+5%), 1.2 kg spice
         issues_data = []
         for item in run.items.filter(raw_material__isnull=False):
@@ -134,7 +140,12 @@ class BenchmarkProductionRunTests(TestCase):
         run.refresh_from_db()
         self.assertEqual(run.status, ProductionRun.Status.IN_PROGRESS)
 
-        # Check raw material stock immediately after Step 2 issue
+        # Verify materials issued audit log
+        issue_log = run.audit_logs.filter(action='Materials Issued').first()
+        self.assertIsNotNone(issue_log)
+        self.assertEqual(issue_log.user, self.user)
+
+        # Check raw material stock immediately after Step 2 issue (ledger stock down)
         self.assertEqual(get_item_current_stock(self.flour), Decimal('120.0000'))  # 160 - 40
         self.assertEqual(get_item_current_stock(self.oil), Decimal('19.5000'))     # 30 - 10.5
         self.assertEqual(get_item_current_stock(self.spice), Decimal('3.8000'))    # 5 - 1.2
@@ -153,6 +164,11 @@ class BenchmarkProductionRunTests(TestCase):
         run.refresh_from_db()
         self.assertEqual(run.status, ProductionRun.Status.COMPLETED)
 
+        # Verify completion audit log
+        complete_log = run.audit_logs.filter(action='Completed').first()
+        self.assertIsNotNone(complete_log)
+        self.assertEqual(complete_log.user, self.user)
+
         # ---------------------------------------------------------------------
         # 1. Closing Balances Checks (PROBLEM.md Section 5 Results table)
         # ---------------------------------------------------------------------
@@ -168,7 +184,7 @@ class BenchmarkProductionRunTests(TestCase):
         # Cartons closing balance: 21 (30 - 9)
         self.assertEqual(get_item_current_stock(self.carton), Decimal('21.0000'))
 
-        # Finished goods after run: 238 packets (50 + 188)
+        # Finished goods after run: 238 packets (50 + 188) (finished goods up)
         self.assertEqual(get_item_current_stock(self.product), Decimal('238.0000'))
 
         # ---------------------------------------------------------------------
@@ -196,40 +212,81 @@ class BenchmarkProductionRunTests(TestCase):
         # ---------------------------------------------------------------------
         # 3. Costing & Margin Checks (Section 4.5 & Step 8)
         # ---------------------------------------------------------------------
-        # Raw materials cost: 40 kg × 45 = 1800; 10.5 L × 140 = 1470; 1.2 kg × 200 = 240 -> RM total = 3510
         self.assertEqual(run.total_raw_material_cost, Decimal('3510.00'))
-        # Packaging cost: 194 pouches × 2.50 = 485; 9 cartons × 15 = 135 -> Pkg total = 620
         self.assertEqual(run.total_packaging_cost, Decimal('620.00'))
-        # Total material: 3510 + 620 = 4130
         self.assertEqual(run.total_material_cost, Decimal('4130.00'))
-        # Total cost: 4130 + 1200 (labour) + 600 (overhead) = 5930
         self.assertEqual(run.total_production_cost, Decimal('5930.00'))
-        # Cost per packet: 5930 / 188 = ₹31.54
         self.assertEqual(run.actual_cost_per_packet, Decimal('31.54'))
-        # Selling price: ₹50.00; Margin: 50 - 31.54 = ₹18.46 (36.92%)
         self.assertEqual(run.margin_per_packet, Decimal('18.46'))
         self.assertEqual(run.margin_pct, Decimal('36.92'))
 
-    def test_convenience_execute_full_production_run(self):
-        """Tests the atomic end-to-end execution helper."""
-        run = execute_full_production_run(
+    def test_configurable_variance_tolerance(self):
+        """
+        Verify that tolerance threshold is configurable per run.
+        """
+        # Run with 10% tolerance: -6% yield variance and +5% oil variance must NOT be flagged
+        run_wide = execute_full_production_run(
             product=self.product,
             bom=self.bom,
             batch_multiplier=Decimal('1.00'),
-            raw_material_issues={'RM-FLOUR': Decimal('40.0000'), 'RM-OIL': Decimal('10.5000'), 'RM-SPICE': Decimal('1.2000')},
+            raw_material_issues={'RM-OIL': Decimal('10.5000')},
             actual_yield=188,
             damaged_pouches=6,
             cartons_used=9,
-            labour_cost=Decimal('1200.00'),
-            overhead_cost=Decimal('600.00'),
-            run_number='PR-AUTO-001',
+            variance_tolerance_pct=Decimal('10.00'),
+            run_number='PR-TOL-10',
             user=self.user,
         )
-        self.assertEqual(run.status, ProductionRun.Status.COMPLETED)
-        self.assertEqual(get_item_current_stock(self.flour), Decimal('120.0000'))
-        self.assertEqual(get_item_current_stock(self.oil), Decimal('19.5000'))
-        self.assertEqual(get_item_current_stock(self.pouch), Decimal('306.0000'))
-        self.assertEqual(get_item_current_stock(self.product), Decimal('238.0000'))
+        self.assertFalse(run_wide.is_yield_variance_flagged)
+        oil_item = run_wide.items.get(raw_material__code='RM-OIL')
+        self.assertFalse(oil_item.is_variance_flagged)
+
+        # Run with 2% tolerance: both are flagged
+        run_narrow = execute_full_production_run(
+            product=self.product,
+            bom=self.bom,
+            batch_multiplier=Decimal('1.00'),
+            raw_material_issues={'RM-OIL': Decimal('10.5000')},
+            actual_yield=188,
+            damaged_pouches=6,
+            cartons_used=9,
+            variance_tolerance_pct=Decimal('2.00'),
+            run_number='PR-TOL-2',
+            user=self.user,
+        )
+        self.assertTrue(run_narrow.is_yield_variance_flagged)
+        oil_narrow = run_narrow.items.get(raw_material__code='RM-OIL')
+        self.assertTrue(oil_narrow.is_variance_flagged)
+
+    def test_edit_run_is_logged_with_user_and_time(self):
+        """
+        Verify that edits to a production run are logged in the audit trail with user and timestamp.
+        """
+        run = create_production_run(
+            product=self.product, bom=self.bom, run_number='PR-EDIT-001', user=self.user
+        )
+        c = Client()
+        c.login(username=self.user.username, password='pw')
+
+        res = c.post(reverse('production:production_run_edit', kwargs={'pk': run.pk}), {
+            'variance_tolerance_pct': '4.50',
+            'start_date': '2026-11-22',
+            'completion_date': '',
+            'notes': 'Updated run notes for supervisor shift handover',
+            'edit_reason': 'Shift handover parameter update',
+        })
+        self.assertEqual(res.status_code, 302)
+
+        run.refresh_from_db()
+        self.assertEqual(run.variance_tolerance_pct, Decimal('4.50'))
+        self.assertEqual(run.updated_by, self.user)
+
+        # Check edit log in audit trail
+        edit_log = run.audit_logs.filter(action='Edited').first()
+        self.assertIsNotNone(edit_log)
+        self.assertEqual(edit_log.user, self.user)
+        self.assertIn('Shift handover parameter update', edit_log.details)
+        self.assertIsNotNone(edit_log.timestamp)
 
 
 class ProductionPermissionsTests(TestCase):
@@ -265,23 +322,26 @@ class ProductionPermissionsTests(TestCase):
         self.assertEqual(c.get(reverse('production:production_run_list')).status_code, 403)
         self.assertEqual(c.get(reverse('production:production_run_detail', kwargs={'pk': self.run.pk})).status_code, 403)
         self.assertEqual(c.get(reverse('production:production_run_create')).status_code, 403)
+        self.assertEqual(c.get(reverse('production:production_run_edit', kwargs={'pk': self.run.pk})).status_code, 403)
         self.assertEqual(c.get(reverse('production:production_run_issue', kwargs={'pk': self.run.pk})).status_code, 403)
         self.assertEqual(c.get(reverse('production:production_run_output', kwargs={'pk': self.run.pk})).status_code, 403)
 
-    def test_accountant_can_view_runs_but_cannot_create_or_issue(self):
+    def test_accountant_can_view_runs_but_cannot_create_or_issue_or_edit(self):
         c = Client()
         c.login(username='acct', password=self.password)
         self.assertEqual(c.get(reverse('production:production_run_list')).status_code, 200)
         self.assertEqual(c.get(reverse('production:production_run_detail', kwargs={'pk': self.run.pk})).status_code, 200)
         self.assertEqual(c.get(reverse('production:production_run_create')).status_code, 403)
+        self.assertEqual(c.get(reverse('production:production_run_edit', kwargs={'pk': self.run.pk})).status_code, 403)
         self.assertEqual(c.get(reverse('production:production_run_issue', kwargs={'pk': self.run.pk})).status_code, 403)
 
-    def test_owner_can_view_runs_but_cannot_create_or_issue(self):
+    def test_owner_can_view_runs_but_cannot_create_or_issue_or_edit(self):
         c = Client()
         c.login(username='ownr', password=self.password)
         self.assertEqual(c.get(reverse('production:production_run_list')).status_code, 200)
         self.assertEqual(c.get(reverse('production:production_run_detail', kwargs={'pk': self.run.pk})).status_code, 200)
         self.assertEqual(c.get(reverse('production:production_run_create')).status_code, 403)
+        self.assertEqual(c.get(reverse('production:production_run_edit', kwargs={'pk': self.run.pk})).status_code, 403)
 
     def test_admin_and_production_can_create_and_manage(self):
         c = Client()
@@ -289,4 +349,34 @@ class ProductionPermissionsTests(TestCase):
         self.assertEqual(c.get(reverse('production:production_run_list')).status_code, 200)
         self.assertEqual(c.get(reverse('production:production_run_detail', kwargs={'pk': self.run.pk})).status_code, 200)
         self.assertEqual(c.get(reverse('production:production_run_create')).status_code, 200)
+        self.assertEqual(c.get(reverse('production:production_run_edit', kwargs={'pk': self.run.pk})).status_code, 200)
         self.assertEqual(c.get(reverse('production:production_run_issue', kwargs={'pk': self.run.pk})).status_code, 200)
+
+    def test_create_planned_run_via_post_with_exact_values(self):
+        """
+        POSTs the production run create form with:
+          - product, bom, batch_multiplier=1.00, start_date filled in
+          - variance_tolerance_pct intentionally omitted → must default to 3.00
+          - notes intentionally omitted → must be optional
+        Expects a redirect (302) on success and a ProductionRun with correct values.
+        """
+        import datetime
+        c = Client()
+        c.login(username='adm', password=self.password)
+        res = c.post(reverse('production:production_run_create'), {
+            'product': str(self.product.id),
+            'bom': str(self.bom.id),
+            'batch_multiplier': '1.00',
+            'start_date': '2026-11-22',
+            # variance_tolerance_pct intentionally omitted → must default to 3.00
+            # notes intentionally omitted → must be optional
+        })
+        # On success the view should redirect (302); a 200 means form re-rendered with errors
+        self.assertEqual(res.status_code, 302,
+            msg=f"Expected redirect on success but got {res.status_code}. "
+                f"Form may have errors.")
+        run = ProductionRun.objects.filter(product=self.product).order_by('-created_at').first()
+        self.assertIsNotNone(run, "ProductionRun was not created after successful POST")
+        self.assertEqual(run.expected_yield, 200)
+        self.assertEqual(run.variance_tolerance_pct, Decimal('3.00'))
+        self.assertEqual(run.status, ProductionRun.Status.DRAFT)

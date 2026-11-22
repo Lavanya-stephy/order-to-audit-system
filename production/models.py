@@ -8,7 +8,7 @@ from masters.models import Product, BillOfMaterial, RawMaterial, PackagingItem, 
 
 User = get_user_model()
 
-VARIANCE_TOLERANCE_PCT = Decimal('3.00')
+DEFAULT_VARIANCE_TOLERANCE_PCT = Decimal('3.00')
 
 
 class ProductionRun(models.Model):
@@ -66,6 +66,14 @@ class ProductionRun(models.Model):
         help_text="Number of outer shipping cartons used"
     )
 
+    # Configurable variance tolerance threshold (default 3%)
+    variance_tolerance_pct = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=DEFAULT_VARIANCE_TOLERANCE_PCT,
+        help_text="Configurable variance tolerance percentage threshold (default: 3.00%)"
+    )
+
     # Costing elements (Problem Section 4.5 & Step 8)
     labour_cost = models.DecimalField(
         max_digits=10,
@@ -87,6 +95,13 @@ class ProductionRun(models.Model):
         null=True,
         blank=True,
         related_name='created_production_runs'
+    )
+    updated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='updated_production_runs'
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -119,10 +134,11 @@ class ProductionRun(models.Model):
 
     @property
     def is_yield_variance_flagged(self) -> bool:
-        """Returns True if yield variance exceeds tolerance (3%)."""
+        """Returns True if yield variance exceeds configurable tolerance (default 3%)."""
         if self.actual_yield is None:
             return False
-        return abs(self.yield_variance_pct) > VARIANCE_TOLERANCE_PCT
+        tolerance = self.variance_tolerance_pct if self.variance_tolerance_pct is not None else DEFAULT_VARIANCE_TOLERANCE_PCT
+        return abs(self.yield_variance_pct) > tolerance
 
     @property
     def total_raw_material_cost(self) -> Decimal:
@@ -265,8 +281,9 @@ class ProductionRunItem(models.Model):
 
     @property
     def is_variance_flagged(self) -> bool:
-        """Flagged if consumption variance exceeds tolerance (3%)."""
-        return abs(self.consumption_variance_pct) > VARIANCE_TOLERANCE_PCT
+        """Flagged if consumption variance exceeds run's tolerance (default 3%)."""
+        tolerance = self.run.variance_tolerance_pct if (self.run and self.run.variance_tolerance_pct is not None) else DEFAULT_VARIANCE_TOLERANCE_PCT
+        return abs(self.consumption_variance_pct) > tolerance
 
     @property
     def standard_cost(self) -> Decimal:
@@ -278,3 +295,34 @@ class ProductionRunItem(models.Model):
 
     def __str__(self):
         return f"{self.item_name}: Std {self.standard_quantity} | Act {self.actual_quantity} {self.unit.symbol}"
+
+
+class ProductionRunLog(models.Model):
+    """
+    Audit trail for production runs. Logs every creation, status transition,
+    and edit with user and timestamp.
+    """
+    run = models.ForeignKey(
+        ProductionRun,
+        on_delete=models.CASCADE,
+        related_name='audit_logs'
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='production_run_logs'
+    )
+    action = models.CharField(max_length=100)
+    timestamp = models.DateTimeField(default=timezone.now)
+    details = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-timestamp', '-id']
+        verbose_name = 'Production Run Log'
+        verbose_name_plural = 'Production Run Logs'
+
+    def __str__(self):
+        user_str = self.user.username if self.user else 'System'
+        return f"{self.run.run_number} - {self.action} by {user_str} at {self.timestamp.strftime('%Y-%m-%d %H:%M')}"

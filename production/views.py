@@ -6,12 +6,13 @@ from django.urls import reverse
 
 from accounts.models import Role
 from accounts.permissions import role_required
-from .models import ProductionRun, ProductionRunItem
-from .forms import ProductionRunCreateForm, ProductionOutputForm
+from .models import ProductionRun, ProductionRunItem, ProductionRunLog, DEFAULT_VARIANCE_TOLERANCE_PCT
+from .forms import ProductionRunCreateForm, ProductionRunEditForm, ProductionOutputForm
 from .services import (
     create_production_run,
     issue_materials_for_run,
     record_production_output,
+    log_run_action,
 )
 
 PRODUCTION_MANAGERS = [Role.ADMIN, Role.PRODUCTION]
@@ -36,6 +37,7 @@ def production_run_create_view(request):
             product = form.cleaned_data['product']
             bom = form.cleaned_data['bom']
             multiplier = form.cleaned_data['batch_multiplier']
+            tolerance = form.cleaned_data.get('variance_tolerance_pct') or DEFAULT_VARIANCE_TOLERANCE_PCT
             start_date = form.cleaned_data['start_date']
             notes = form.cleaned_data['notes']
 
@@ -43,6 +45,7 @@ def production_run_create_view(request):
                 product=product,
                 bom=bom,
                 batch_multiplier=multiplier,
+                variance_tolerance_pct=tolerance,
                 start_date=start_date,
                 notes=notes,
                 user=request.user,
@@ -62,11 +65,12 @@ def production_run_create_view(request):
 @role_required(PRODUCTION_VIEWERS)
 def production_run_detail_view(request, pk):
     run = get_object_or_404(
-        ProductionRun.objects.select_related('product', 'bom', 'created_by').prefetch_related('items__unit', 'items__raw_material', 'items__packaging_item'),
+        ProductionRun.objects.select_related('product', 'bom', 'created_by', 'updated_by').prefetch_related('items__unit', 'items__raw_material', 'items__packaging_item', 'audit_logs__user'),
         pk=pk
     )
     raw_material_items = run.items.filter(raw_material__isnull=False)
     packaging_items = run.items.filter(packaging_item__isnull=False)
+    audit_logs = run.audit_logs.select_related('user').order_by('-timestamp', '-id')
 
     can_manage = request.user.role in PRODUCTION_MANAGERS or request.user.is_superuser
 
@@ -74,7 +78,36 @@ def production_run_detail_view(request, pk):
         'run': run,
         'raw_material_items': raw_material_items,
         'packaging_items': packaging_items,
+        'audit_logs': audit_logs,
         'can_manage': can_manage,
+    })
+
+
+@login_required
+@role_required(PRODUCTION_MANAGERS)
+def production_run_edit_view(request, pk):
+    run = get_object_or_404(ProductionRun, pk=pk)
+    if request.method == 'POST':
+        form = ProductionRunEditForm(request.POST, instance=run)
+        if form.is_valid():
+            reason = form.cleaned_data['edit_reason']
+            updated_run = form.save(commit=False)
+            updated_run.updated_by = request.user
+            updated_run.save()
+            log_run_action(
+                run=updated_run,
+                action='Edited',
+                user=request.user,
+                details=f"Reason: {reason}",
+            )
+            messages.success(request, f"Production Run {run.run_number} updated successfully. Edit logged.")
+            return redirect('production:production_run_detail', pk=run.pk)
+    else:
+        form = ProductionRunEditForm(instance=run)
+
+    return render(request, 'production/production_run_edit.html', {
+        'run': run,
+        'form': form,
     })
 
 

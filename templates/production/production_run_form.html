@@ -2,7 +2,7 @@
 {% block title %}Start Production Run — Order-to-Audit{% endblock %}
 
 {% block content %}
-<div class="card" style="max-width:700px; margin:0 auto;">
+<div class="card" style="max-width:750px; margin:0 auto;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
         <div>
             <h2>🏭 {{ title }}</h2>
@@ -16,9 +16,28 @@
         </a>
     </div>
 
-    {% if form.errors %}
+    <!-- Top Error Block: Displays non-field errors and summary of any field errors -->
+    {% if form.non_field_errors %}
     <div style="background:#fee2e2; border:1px solid #fca5a5; color:#b91c1c; padding:0.75rem 1rem; border-radius:4px; margin-bottom:1rem; font-size:0.85rem;">
-        Please correct the errors below.
+        <strong>Validation Error:</strong>
+        <ul style="margin:0.25rem 0 0 1.25rem; padding:0;">
+            {% for error in form.non_field_errors %}
+                <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if form.errors and not form.non_field_errors %}
+    <div style="background:#fee2e2; border:1px solid #fca5a5; color:#b91c1c; padding:0.75rem 1rem; border-radius:4px; margin-bottom:1rem; font-size:0.85rem;">
+        <strong>Please correct the errors indicated below:</strong>
+        <ul style="margin:0.25rem 0 0 1.25rem; padding:0;">
+            {% for field in form %}
+                {% for error in field.errors %}
+                    <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                {% endfor %}
+            {% endfor %}
+        </ul>
     </div>
     {% endif %}
 
@@ -26,35 +45,77 @@
         {% csrf_token %}
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
             <div>
-                <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.25rem;">Finished Product *</label>
+                <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.25rem;" for="{{ form.product.id_for_label }}">
+                    Finished Product *
+                </label>
                 {{ form.product }}
-                {% if form.product.errors %}<div style="color:#b91c1c; font-size:0.8rem;">{{ form.product.errors.0 }}</div>{% endif %}
+                {% if form.product.errors %}
+                    <div style="color:#b91c1c; font-size:0.8rem; margin-top:0.25rem; font-weight:500;">
+                        ⚠️ {{ form.product.errors.0 }}
+                    </div>
+                {% endif %}
             </div>
             <div>
-                <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.25rem;">Bill of Materials (BOM) *</label>
+                <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.25rem;" for="{{ form.bom.id_for_label }}">
+                    Bill of Materials (BOM) *
+                </label>
                 {{ form.bom }}
-                {% if form.bom.errors %}<div style="color:#b91c1c; font-size:0.8rem;">{{ form.bom.errors.0 }}</div>{% endif %}
+                {% if form.bom.errors %}
+                    <div style="color:#b91c1c; font-size:0.8rem; margin-top:0.25rem; font-weight:500;">
+                        ⚠️ {{ form.bom.errors.0 }}
+                    </div>
+                {% endif %}
             </div>
         </div>
 
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:1rem; margin-bottom:1rem;">
             <div>
-                <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.25rem;">Batch Multiplier *</label>
+                <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.25rem;" for="{{ form.batch_multiplier.id_for_label }}">
+                    Batch Multiplier *
+                </label>
                 {{ form.batch_multiplier }}
-                <small style="color:var(--text-muted); font-size:0.75rem;">1.00 = 1 full standard batch</small>
-                {% if form.batch_multiplier.errors %}<div style="color:#b91c1c; font-size:0.8rem;">{{ form.batch_multiplier.errors.0 }}</div>{% endif %}
+                <small style="color:var(--text-muted); font-size:0.75rem;">1.00 = 1 full batch</small>
+                {% if form.batch_multiplier.errors %}
+                    <div style="color:#b91c1c; font-size:0.8rem; margin-top:0.25rem; font-weight:500;">
+                        ⚠️ {{ form.batch_multiplier.errors.0 }}
+                    </div>
+                {% endif %}
             </div>
             <div>
-                <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.25rem;">Start Date *</label>
+                <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.25rem;" for="{{ form.start_date.id_for_label }}">
+                    Start Date *
+                </label>
                 {{ form.start_date }}
-                {% if form.start_date.errors %}<div style="color:#b91c1c; font-size:0.8rem;">{{ form.start_date.errors.0 }}</div>{% endif %}
+                {% if form.start_date.errors %}
+                    <div style="color:#b91c1c; font-size:0.8rem; margin-top:0.25rem; font-weight:500;">
+                        ⚠️ {{ form.start_date.errors.0 }}
+                    </div>
+                {% endif %}
+            </div>
+            <div>
+                <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.25rem;" for="{{ form.variance_tolerance_pct.id_for_label }}">
+                    Tolerance (%)
+                </label>
+                {{ form.variance_tolerance_pct }}
+                <small style="color:var(--text-muted); font-size:0.75rem;">Default: 3.00%</small>
+                {% if form.variance_tolerance_pct.errors %}
+                    <div style="color:#b91c1c; font-size:0.8rem; margin-top:0.25rem; font-weight:500;">
+                        ⚠️ {{ form.variance_tolerance_pct.errors.0 }}
+                    </div>
+                {% endif %}
             </div>
         </div>
 
         <div style="margin-bottom:1.5rem;">
-            <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.25rem;">Notes</label>
+            <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.25rem;" for="{{ form.notes.id_for_label }}">
+                Notes
+            </label>
             {{ form.notes }}
-            {% if form.notes.errors %}<div style="color:#b91c1c; font-size:0.8rem;">{{ form.notes.errors.0 }}</div>{% endif %}
+            {% if form.notes.errors %}
+                <div style="color:#b91c1c; font-size:0.8rem; margin-top:0.25rem; font-weight:500;">
+                    ⚠️ {{ form.notes.errors.0 }}
+                </div>
+            {% endif %}
         </div>
 
         <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
