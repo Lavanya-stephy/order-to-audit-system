@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block title %}Production Runs — Order-to-Audit{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div>
+            <h2>🏭 Production Runs</h2>
+            <p style="color:var(--text-muted); font-size:0.9rem;">
+                Standard recipe batches, raw-material issues, output yields, and variance monitoring.
+            </p>
+        </div>
+        {% if user.role == 'admin' or user.role == 'production' or user.is_superuser %}
+        <a href="{% url 'production:production_run_create' %}"
+           style="display:inline-block; background:#0284c7; color:#fff; padding:0.5rem 1rem;
+                  border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+            + Start Production Run
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+{% if messages %}
+    {% for message in messages %}
+        <div style="padding:0.75rem 1rem; border-radius:4px; margin-bottom:1rem; font-size:0.9rem;
+                    {% if message.tags == 'success' %}background:#dcfce7; color:#15803d; border:1px solid #bbf7d0;
+                    {% elif message.tags == 'error' %}background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;
+                    {% else %}background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;{% endif %}">
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<div class="card" style="padding:0; overflow-x:auto;">
+    <table style="width:100%; border-collapse:collapse; font-size:0.875rem;">
+        <thead>
+            <tr>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:left;">Run #</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:left;">Product</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:left;">Date</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:center;">Status</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:right;">Expected</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:right;">Actual Yield</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:right;">Yield Variance</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:right;">Cost / Pkt</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for run in production_runs %}
+            <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:0.65rem 0.8rem; font-family:monospace; font-weight:600;">
+                    <a href="{% url 'production:production_run_detail' run.pk %}" style="color:var(--primary); text-decoration:none;">
+                        {{ run.run_number }}
+                    </a>
+                </td>
+                <td style="padding:0.65rem 0.8rem; font-weight:500;">{{ run.product.name }}</td>
+                <td style="padding:0.65rem 0.8rem; color:var(--text-muted);">{{ run.start_date|date:"d M Y" }}</td>
+                <td style="padding:0.65rem 0.8rem; text-align:center;">
+                    {% if run.status == 'draft' %}
+                        <span class="badge" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">Draft</span>
+                    {% elif run.status == 'in_progress' %}
+                        <span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;">In Progress</span>
+                    {% elif run.status == 'completed' %}
+                        <span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0;">✓ Completed</span>
+                    {% else %}
+                        <span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;">Cancelled</span>
+                    {% endif %}
+                </td>
+                <td style="padding:0.65rem 0.8rem; text-align:right; color:var(--text-muted);">{{ run.expected_yield }} pkts</td>
+                <td style="padding:0.65rem 0.8rem; text-align:right; font-weight:600;">
+                    {% if run.actual_yield is not None %}
+                        {{ run.actual_yield }} pkts
+                    {% else %}
+                        <span style="color:#94a3b8;">—</span>
+                    {% endif %}
+                </td>
+                <td style="padding:0.65rem 0.8rem; text-align:right;">
+                    {% if run.actual_yield is not None %}
+                        {% if run.is_yield_variance_flagged %}
+                            <span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700;">
+                                ⚠️ {{ run.yield_variance_pct }}%
+                            </span>
+                        {% else %}
+                            <span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #e2e8f0;">
+                                {{ run.yield_variance_pct }}%
+                            </span>
+                        {% endif %}
+                    {% else %}
+                        <span style="color:#94a3b8;">—</span>
+                    {% endif %}
+                </td>
+                <td style="padding:0.65rem 0.8rem; text-align:right; font-weight:600;">
+                    {% if run.actual_cost_per_packet > 0 %}
+                        ₹{{ run.actual_cost_per_packet }}
+                    {% else %}
+                        <span style="color:#94a3b8;">—</span>
+                    {% endif %}
+                </td>
+                <td style="padding:0.65rem 0.8rem; text-align:right;">
+                    <a href="{% url 'production:production_run_detail' run.pk %}"
+                       style="color:#0284c7; font-weight:600; text-decoration:none; font-size:0.82rem;">
+                        View →
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="9" style="padding:2.5rem; text-align:center; color:var(--text-muted);">
+                    No production runs recorded yet.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

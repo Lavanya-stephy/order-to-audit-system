@@ -56,9 +56,17 @@ def admin_dashboard(request):
 @role_required([Role.PRODUCTION])
 def production_dashboard(request):
     """Production Supervisor interface: recipe BOM, issue logs, daily runs, yield/wastage."""
+    from production.models import ProductionRun
+    recent_runs = ProductionRun.objects.select_related('product', 'bom').order_by('-created_at')[:5]
+    in_progress_count = ProductionRun.objects.filter(status=ProductionRun.Status.IN_PROGRESS).count()
+    completed_count = ProductionRun.objects.filter(status=ProductionRun.Status.COMPLETED).count()
+
     context = {
         'page_title': 'Production Floor Portal',
         'role_name': 'Production Supervisor',
+        'recent_runs': recent_runs,
+        'in_progress_count': in_progress_count,
+        'completed_count': completed_count,
     }
     return render(request, 'accounts/production_dashboard.html', context)
 

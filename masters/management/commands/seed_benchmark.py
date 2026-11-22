@@ -33,10 +33,12 @@ class Command(BaseCommand):
         self.stdout.write("==================================================")
 
         # ---------------------------------------------------------------------
-        # 1. Users: One user per role
+        # 1. Users: Role-based benchmark users
         # ---------------------------------------------------------------------
         users_data = [
             ('salesman', 'salesman123', Role.SALESMAN, 'Field Salesman A', 'Salesman'),
+            ('salesman_a', 'salesman123', Role.SALESMAN, 'Field Salesman A', 'Salesman'),
+            ('salesman_b', 'salesman123', Role.SALESMAN, 'Field Salesman B', 'Salesman'),
             ('admin', 'admin123', Role.ADMIN, 'Factory Admin User', 'Admin'),
             ('production', 'production123', Role.PRODUCTION, 'Production Supervisor', 'Production'),
             ('accountant', 'accountant123', Role.ACCOUNTANT, 'Auditor & Accountant User', 'Accountant'),

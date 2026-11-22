@@ -1,0 +1,262 @@
+{% extends 'base.html' %}
+{% block title %}Production Run {{ run.run_number }} — Order-to-Audit{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:1rem;">
+        <div>
+            <div style="display:flex; align-items:center; gap:0.75rem;">
+                <h2 style="margin:0; font-family:monospace;">{{ run.run_number }}</h2>
+                {% if run.status == 'draft' %}
+                    <span class="badge" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">Draft / Planned</span>
+                {% elif run.status == 'in_progress' %}
+                    <span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;">In Progress (Issued)</span>
+                {% elif run.status == 'completed' %}
+                    <span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0;">✓ Completed</span>
+                {% else %}
+                    <span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;">Cancelled</span>
+                {% endif %}
+            </div>
+            <p style="color:var(--text-muted); font-size:0.875rem; margin-top:0.25rem;">
+                Product: <strong>{{ run.product.name }}</strong> &bull; Recipe BOM: <strong>{{ run.bom.name }}</strong> (Batch: {{ run.batch_multiplier }})
+            </p>
+        </div>
+
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <a href="{% url 'production:production_run_list' %}"
+               style="background:#f1f5f9; color:#475569; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.82rem; font-weight:600;">
+                ← Back to Runs
+            </a>
+            {% if can_manage %}
+                {% if run.status == 'draft' %}
+                    <a href="{% url 'production:production_run_issue' run.pk %}"
+                       style="background:#0284c7; color:#fff; padding:0.45rem 1rem; border-radius:4px; text-decoration:none; font-size:0.82rem; font-weight:600;">
+                        📦 Issue Materials →
+                    </a>
+                {% elif run.status == 'in_progress' %}
+                    <a href="{% url 'production:production_run_output' run.pk %}"
+                       style="background:#16a34a; color:#fff; padding:0.45rem 1rem; border-radius:4px; text-decoration:none; font-size:0.82rem; font-weight:600;">
+                        🏁 Record Output & Complete →
+                    </a>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Key Metrics Grid -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border);">
+        <div style="background:#f8fafc; padding:0.75rem; border-radius:6px; border:1px solid var(--border);">
+            <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Expected Yield</div>
+            <div style="font-size:1.2rem; font-weight:700; color:var(--primary);">{{ run.expected_yield }} pkts</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Standard recipe output</div>
+        </div>
+
+        <div style="background:#f8fafc; padding:0.75rem; border-radius:6px; border:1px solid var(--border);">
+            <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Actual Good Output</div>
+            <div style="font-size:1.2rem; font-weight:700; color:{% if run.actual_yield %}#15803d{% else %}#94a3b8{% endif %};">
+                {% if run.actual_yield %}{{ run.actual_yield }} pkts{% else %}—{% endif %}
+            </div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">
+                {% if run.status == 'completed' %}+{{ run.actual_yield }} to Finished Goods{% else %}Pending completion{% endif %}
+            </div>
+        </div>
+
+        <div style="background:#f8fafc; padding:0.75rem; border-radius:6px; border:1px solid var(--border);">
+            <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Yield Variance</div>
+            <div style="font-size:1.2rem; font-weight:700;">
+                {% if run.actual_yield is not None %}
+                    {% if run.is_yield_variance_flagged %}
+                        <span style="color:#b91c1c;">⚠️ {{ run.yield_variance_pct }}%</span>
+                    {% else %}
+                        <span style="color:#15803d;">{{ run.yield_variance_pct }}%</span>
+                    {% endif %}
+                {% else %}
+                    <span style="color:#94a3b8;">—</span>
+                {% endif %}
+            </div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">
+                {% if run.is_yield_variance_flagged %}Exceeds 3% tolerance!{% else %}Within ±3% tolerance{% endif %}
+            </div>
+        </div>
+
+        <div style="background:#f8fafc; padding:0.75rem; border-radius:6px; border:1px solid var(--border);">
+            <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Actual Cost / Pkt</div>
+            <div style="font-size:1.2rem; font-weight:700; color:var(--primary);">
+                {% if run.actual_cost_per_packet > 0 %}₹{{ run.actual_cost_per_packet }}{% else %}—{% endif %}
+            </div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">
+                {% if run.actual_cost_per_packet > 0 %}Margin: ₹{{ run.margin_per_packet }} ({{ run.margin_pct }}%){% else %}Selling Price: ₹{{ run.product.selling_price }}{% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Section 1: Raw Materials Consumption & Variances -->
+<div class="card" style="padding:0; overflow-x:auto;">
+    <div style="padding:1rem 1.25rem; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="font-size:1rem; margin:0; color:var(--primary);">🌾 Raw Materials Issued & Variances (Step 2)</h3>
+        <span style="font-size:0.8rem; color:var(--text-muted);">3% Variance Tolerance</span>
+    </div>
+    <table style="width:100%; border-collapse:collapse; font-size:0.875rem;">
+        <thead>
+            <tr>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:left;">Material</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:right;">Standard Qty</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:right;">Actual Issued</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:left;">Unit</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:right;">Variance</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:right;">Rate (₹)</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:right;">Actual Cost</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:center;">Ledger Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in raw_material_items %}
+            <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:0.65rem 0.8rem;">
+                    <strong>{{ item.raw_material.name }}</strong>
+                    <span style="font-family:monospace; color:var(--text-muted); font-size:0.75rem;">[{{ item.raw_material.code }}]</span>
+                </td>
+                <td style="padding:0.65rem 0.8rem; text-align:right; color:var(--text-muted);">{{ item.standard_quantity }}</td>
+                <td style="padding:0.65rem 0.8rem; text-align:right; font-weight:600;">{{ item.actual_quantity }}</td>
+                <td style="padding:0.65rem 0.8rem; color:var(--text-muted);">{{ item.unit.symbol }}</td>
+                <td style="padding:0.65rem 0.8rem; text-align:right;">
+                    {% if item.actual_quantity > 0 %}
+                        {% if item.is_variance_flagged %}
+                            <span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700;">
+                                ⚠️ +{{ item.consumption_variance_pct }}%
+                            </span>
+                        {% else %}
+                            <span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #e2e8f0;">
+                                {{ item.consumption_variance_pct }}%
+                            </span>
+                        {% endif %}
+                    {% else %}
+                        <span style="color:#94a3b8;">—</span>
+                    {% endif %}
+                </td>
+                <td style="padding:0.65rem 0.8rem; text-align:right;">₹{{ item.unit_cost }}</td>
+                <td style="padding:0.65rem 0.8rem; text-align:right; font-weight:600;">₹{{ item.actual_cost }}</td>
+                <td style="padding:0.65rem 0.8rem; text-align:center;">
+                    {% if item.movement_recorded %}
+                        <span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0;">✓ Issued</span>
+                    {% else %}
+                        <span class="badge" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">Pending</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr style="background:#f8fafc; font-weight:600;">
+                <td colspan="6" style="padding:0.65rem 0.8rem; text-align:right;">Total Raw Material Cost:</td>
+                <td style="padding:0.65rem 0.8rem; text-align:right; color:var(--primary);">₹{{ run.total_raw_material_cost }}</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<!-- Section 2: Packaging Consumption (Step 3) -->
+<div class="card" style="padding:0; overflow-x:auto;">
+    <div style="padding:1rem 1.25rem; border-bottom:1px solid var(--border);">
+        <h3 style="font-size:1rem; margin:0; color:var(--primary);">📦 Packaging Consumed (Step 3)</h3>
+    </div>
+    <table style="width:100%; border-collapse:collapse; font-size:0.875rem;">
+        <thead>
+            <tr>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:left;">Item</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:right;">Standard Qty</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:right;">Actual Used</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:right;">Damaged / Scrap</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:left;">Unit</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:right;">Rate (₹)</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:right;">Actual Cost</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:center;">Ledger Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in packaging_items %}
+            <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:0.65rem 0.8rem;">
+                    <strong>{{ item.packaging_item.name }}</strong>
+                    <span style="font-family:monospace; color:var(--text-muted); font-size:0.75rem;">[{{ item.packaging_item.code }}]</span>
+                </td>
+                <td style="padding:0.65rem 0.8rem; text-align:right; color:var(--text-muted);">{{ item.standard_quantity }}</td>
+                <td style="padding:0.65rem 0.8rem; text-align:right; font-weight:600;">
+                    {% if run.status == 'completed' %}
+                        {{ item.actual_quantity }}
+                    {% else %}
+                        <span style="color:#94a3b8;">Pending</span>
+                    {% endif %}
+                </td>
+                <td style="padding:0.65rem 0.8rem; text-align:right;">
+                    {% if item.packaging_item.capacity_packets == 1 or 'pouch' in item.packaging_item.name.lower %}
+                        {% if run.status == 'completed' %}
+                            <span style="color:#b91c1c; font-weight:600;">{{ run.damaged_pouches }} pcs</span>
+                        {% else %}—{% endif %}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                <td style="padding:0.65rem 0.8rem; color:var(--text-muted);">{{ item.unit.symbol }}</td>
+                <td style="padding:0.65rem 0.8rem; text-align:right;">₹{{ item.unit_cost }}</td>
+                <td style="padding:0.65rem 0.8rem; text-align:right; font-weight:600;">₹{{ item.actual_cost }}</td>
+                <td style="padding:0.65rem 0.8rem; text-align:center;">
+                    {% if item.movement_recorded %}
+                        <span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0;">✓ Consumed</span>
+                    {% else %}
+                        <span class="badge" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">Pending</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr style="background:#f8fafc; font-weight:600;">
+                <td colspan="6" style="padding:0.65rem 0.8rem; text-align:right;">Total Packaging Cost:</td>
+                <td style="padding:0.65rem 0.8rem; text-align:right; color:var(--primary);">₹{{ run.total_packaging_cost }}</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<!-- Section 3: Costing & Margin Breakdown (Step 8) -->
+<div class="card">
+    <h3 style="font-size:1rem; margin-bottom:1rem; color:var(--primary);">💰 Batch Costing & Profit Margin Analysis (Step 8)</h3>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:1.25rem;">
+        <div style="border-right:1px solid var(--border); padding-right:1rem;">
+            <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.35rem;">Raw Materials Cost</div>
+            <div style="font-size:1.1rem; font-weight:600;">₹{{ run.total_raw_material_cost }}</div>
+            <div style="font-size:0.85rem; color:var(--text-muted); margin-top:0.75rem; margin-bottom:0.35rem;">Packaging Cost</div>
+            <div style="font-size:1.1rem; font-weight:600;">₹{{ run.total_packaging_cost }}</div>
+        </div>
+
+        <div style="border-right:1px solid var(--border); padding-right:1rem;">
+            <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.35rem;">Direct Labour Cost</div>
+            <div style="font-size:1.1rem; font-weight:600;">₹{{ run.labour_cost }}</div>
+            <div style="font-size:0.85rem; color:var(--text-muted); margin-top:0.75rem; margin-bottom:0.35rem;">Power / Gas / Overheads</div>
+            <div style="font-size:1.1rem; font-weight:600;">₹{{ run.overhead_cost }}</div>
+        </div>
+
+        <div>
+            <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.35rem;">Total Production Cost</div>
+            <div style="font-size:1.3rem; font-weight:700; color:var(--primary);">₹{{ run.total_production_cost }}</div>
+            <div style="font-size:0.85rem; color:var(--text-muted); margin-top:0.5rem; margin-bottom:0.25rem;">Cost per Packet</div>
+            <div style="font-size:1.2rem; font-weight:700; color:#0369a1;">
+                {% if run.actual_cost_per_packet > 0 %}
+                    ₹{{ run.actual_cost_per_packet }} / packet
+                {% else %}
+                    —
+                {% endif %}
+            </div>
+            {% if run.actual_cost_per_packet > 0 %}
+            <div style="font-size:0.85rem; color:#15803d; font-weight:600; margin-top:0.25rem;">
+                Margin: ₹{{ run.margin_per_packet }} / pkt ({{ run.margin_pct }}%)
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

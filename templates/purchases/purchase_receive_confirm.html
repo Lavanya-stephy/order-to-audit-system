@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Confirm Receipt — {{ po.po_number }}{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:580px; margin:2rem auto;">
+    <h2>Confirm Receipt</h2>
+    <p style="color:var(--text-muted);">
+        You are about to mark <strong>{{ po.po_number }}</strong> as received.
+        This will record one PURCHASE stock movement per line in the inventory ledger.
+        <strong>This action cannot be undone.</strong>
+    </p>
+    <form method="post">
+        {% csrf_token %}
+        <div style="display:flex; gap:1rem; margin-top:1.5rem;">
+            <button type="submit"
+                    style="background:#059669; color:#fff; border:none; padding:0.6rem 1.4rem;
+                           border-radius:4px; font-size:0.9rem; font-weight:600; cursor:pointer;">
+                ✓ Yes, Confirm Receipt
+            </button>
+            <a href="{% url 'purchases:purchase_detail' po.pk %}"
+               style="color:var(--text-muted); text-decoration:none; font-size:0.9rem; padding:0.6rem 0;">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

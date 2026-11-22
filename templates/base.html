@@ -166,6 +166,14 @@
                     <a href="{% url 'inventory:stock_ledger' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
                         📜 Stock Ledger
                     </a>
+                    {% if user.role == 'admin' or user.role == 'production' or user.is_superuser %}
+                    <a href="{% url 'purchases:purchase_list' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
+                        🛒 Purchases
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'production:production_run_list' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
+                        🏭 Production
+                    </a>
                     <a href="{% url 'masters:hub' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
                         📁 Master Data
                     </a>

@@ -12,39 +12,126 @@
             </p>
         </div>
         <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-            <a href="{% url 'inventory:stock_summary' %}" style="display:inline-block; background:#0284c7; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
-                📊 Stock Summary
+            <a href="{% url 'production:production_run_create' %}" style="display:inline-block; background:#16a34a; color:#ffffff; padding:0.45rem 1rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                + Start Production Run
             </a>
-            <a href="{% url 'inventory:stock_ledger' %}" style="display:inline-block; background:#334155; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
-                📜 Stock Ledger
+            <a href="{% url 'production:production_run_list' %}" style="display:inline-block; background:#0284c7; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                🏭 Production Runs
+            </a>
+            <a href="{% url 'purchases:purchase_list' %}" style="display:inline-block; background:#0d9488; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                🛒 Purchases
+            </a>
+            <a href="{% url 'inventory:stock_summary' %}" style="display:inline-block; background:#475569; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                📊 Stock Summary
             </a>
         </div>
     </div>
 </div>
 
+<!-- Quick Workflow Navigation Cards -->
 <div class="grid">
     <div class="feature-card">
-        <h3>📖 Bill of Materials (BOM) Masters</h3>
+        <h3>🏭 Daily Production Runs</h3>
+        <p>Start batches, issue raw materials, record actual good packets, track damaged packaging, and monitor variances.</p>
+        <div style="margin-top:0.75rem; display:flex; gap:0.75rem; flex-wrap:wrap;">
+            <a href="{% url 'production:production_run_list' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">View All Runs &rarr;</a>
+            <a href="{% url 'production:production_run_create' %}" style="color:#16a34a; text-decoration:none; font-weight:600; font-size:0.85rem;">+ New Batch &rarr;</a>
+        </div>
+    </div>
+    <div class="feature-card">
+        <h3>📖 Bill of Materials (BOM)</h3>
         <p>Standard recipes per batch: raw material formulas, packaging requirements, and expected yields.</p>
         <div style="margin-top:0.75rem;">
             <a href="{% url 'masters:bom_list' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">View & Manage BOMs &rarr;</a>
         </div>
     </div>
     <div class="feature-card">
-        <h3>🏭 Daily Production Runs</h3>
-        <p>Log batch execution, record actual inputs issued, good packet outputs, damaged packaging, and scrap.</p>
+        <h3>🛒 Purchases & Raw Materials</h3>
+        <p>Receive supplier shipments and log purchase orders to increase ledger stock balances.</p>
+        <div style="margin-top:0.75rem; display:flex; gap:0.75rem; flex-wrap:wrap;">
+            <a href="{% url 'purchases:purchase_list' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">Purchase Orders &rarr;</a>
+            <a href="{% url 'purchases:purchase_create' %}" style="color:#0284c7; text-decoration:none; font-weight:600; font-size:0.85rem;">+ Record Receipt &rarr;</a>
+        </div>
     </div>
     <div class="feature-card">
-        <h3>📊 Consumption & Yield Variance</h3>
-        <p>Automatic planned vs actual comparison with color-coded alerts on excess consumption or yield drop.</p>
-    </div>
-    <div class="feature-card">
-        <h3>📦 Raw Material Inward Receipts & Stock</h3>
-        <p>Log supplier delivery challans and purchase receipts to increase raw-material stock in ledger.</p>
-        <div style="margin-top:0.75rem; display:flex; gap:0.75rem;">
+        <h3>📊 Real-Time Inventory Ledger</h3>
+        <p>Audit-trail ledger of all stock movements: opening, receipts, issues, outputs, and dispatches.</p>
+        <div style="margin-top:0.75rem; display:flex; gap:0.75rem; flex-wrap:wrap;">
             <a href="{% url 'inventory:stock_summary' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">Stock Summary &rarr;</a>
             <a href="{% url 'inventory:stock_ledger' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">Item Ledger &rarr;</a>
         </div>
     </div>
+</div>
+
+<!-- Recent Production Runs Section -->
+<div class="card" style="margin-top:1.5rem; padding:0; overflow-x:auto;">
+    <div style="padding:1rem 1.25rem; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="font-size:1rem; margin:0; color:var(--primary);">Recent Production Batches</h3>
+        <a href="{% url 'production:production_run_list' %}" style="font-size:0.825rem; color:#0284c7; text-decoration:none; font-weight:600;">
+            View Full List &rarr;
+        </a>
+    </div>
+    <table style="width:100%; border-collapse:collapse; font-size:0.875rem;">
+        <thead>
+            <tr>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:left;">Run #</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:left;">Product</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:center;">Status</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:right;">Expected Yield</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:right;">Actual Yield</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:right;">Variance</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for run in recent_runs %}
+            <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:0.65rem 0.8rem; font-family:monospace; font-weight:600;">
+                    <a href="{% url 'production:production_run_detail' run.pk %}" style="color:var(--primary); text-decoration:none;">
+                        {{ run.run_number }}
+                    </a>
+                </td>
+                <td style="padding:0.65rem 0.8rem;">{{ run.product.name }}</td>
+                <td style="padding:0.65rem 0.8rem; text-align:center;">
+                    {% if run.status == 'draft' %}
+                        <span class="badge" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">Draft</span>
+                    {% elif run.status == 'in_progress' %}
+                        <span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;">In Progress</span>
+                    {% elif run.status == 'completed' %}
+                        <span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0;">✓ Completed</span>
+                    {% else %}
+                        <span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;">Cancelled</span>
+                    {% endif %}
+                </td>
+                <td style="padding:0.65rem 0.8rem; text-align:right;">{{ run.expected_yield }} pkts</td>
+                <td style="padding:0.65rem 0.8rem; text-align:right; font-weight:600;">
+                    {% if run.actual_yield is not None %}{{ run.actual_yield }} pkts{% else %}—{% endif %}
+                </td>
+                <td style="padding:0.65rem 0.8rem; text-align:right;">
+                    {% if run.actual_yield is not None %}
+                        {% if run.is_yield_variance_flagged %}
+                            <span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;">⚠️ {{ run.yield_variance_pct }}%</span>
+                        {% else %}
+                            <span class="badge" style="background:#f1f5f9; color:#475569;">{{ run.yield_variance_pct }}%</span>
+                        {% endif %}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                <td style="padding:0.65rem 0.8rem; text-align:right;">
+                    <a href="{% url 'production:production_run_detail' run.pk %}" style="color:#0284c7; font-weight:600; text-decoration:none; font-size:0.82rem;">
+                        View &rarr;
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" style="padding:2rem; text-align:center; color:var(--text-muted);">
+                    No production runs yet. <a href="{% url 'production:production_run_create' %}" style="color:#0284c7; font-weight:600;">Start your first batch &rarr;</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 {% endblock %}

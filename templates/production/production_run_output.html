@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% block title %}Record Production Output — {{ run.run_number }}{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:700px; margin:0 auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+        <div>
+            <h2>🏁 Record Output & Packaging: {{ run.run_number }}</h2>
+            <p style="color:var(--text-muted); font-size:0.875rem;">
+                Benchmark Step 3: Record good packets produced, packaging consumed/damaged, and overhead costs.
+            </p>
+        </div>
+        <a href="{% url 'production:production_run_detail' run.pk %}"
+           style="color:var(--text-muted); text-decoration:none; font-size:0.85rem;">
+            ← Cancel
+        </a>
+    </div>
+
+    <div style="background:#f8fafc; border:1px solid var(--border); border-radius:6px; padding:1rem; margin-bottom:1.25rem; font-size:0.875rem;">
+        <strong>Product:</strong> {{ run.product.name }} &bull;
+        <strong>Expected Yield:</strong> <span style="font-weight:700; color:#0369a1;">{{ run.expected_yield }} packets</span> &bull;
+        <strong>Recipe BOM:</strong> {{ run.bom.name }}
+    </div>
+
+    {% if form.errors %}
+    <div style="background:#fee2e2; border:1px solid #fca5a5; color:#b91c1c; padding:0.75rem 1rem; border-radius:4px; margin-bottom:1rem; font-size:0.85rem;">
+        Please correct the errors below.
+    </div>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+        <div style="border-bottom:1px solid var(--border); padding-bottom:1rem; margin-bottom:1rem;">
+            <h3 style="font-size:1rem; margin-bottom:0.75rem; color:var(--primary);">1. Finished Goods & Packaging Output</h3>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+                <div>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.25rem;">
+                        Good Output Packets *
+                    </label>
+                    {{ form.actual_yield }}
+                    <small style="color:var(--text-muted); font-size:0.75rem;">Benchmark: 188 packets (Yield variance will be computed)</small>
+                    {% if form.actual_yield.errors %}<div style="color:#b91c1c; font-size:0.8rem;">{{ form.actual_yield.errors.0 }}</div>{% endif %}
+                </div>
+                <div>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.25rem;">
+                        Damaged / Scrap Pouches
+                    </label>
+                    {{ form.damaged_pouches }}
+                    <small style="color:var(--text-muted); font-size:0.75rem;">Benchmark: 6 damaged pouches (reduces pouch stock)</small>
+                    {% if form.damaged_pouches.errors %}<div style="color:#b91c1c; font-size:0.8rem;">{{ form.damaged_pouches.errors.0 }}</div>{% endif %}
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                <div>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.25rem;">
+                        Cartons Used (Holding 20 pkts)
+                    </label>
+                    {{ form.cartons_used }}
+                    <small style="color:var(--text-muted); font-size:0.75rem;">Benchmark: 9 cartons used</small>
+                    {% if form.cartons_used.errors %}<div style="color:#b91c1c; font-size:0.8rem;">{{ form.cartons_used.errors.0 }}</div>{% endif %}
+                </div>
+                <div>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.25rem;">
+                        Completion Date *
+                    </label>
+                    {{ form.completion_date }}
+                    {% if form.completion_date.errors %}<div style="color:#b91c1c; font-size:0.8rem;">{{ form.completion_date.errors.0 }}</div>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-bottom:1.5rem;">
+            <h3 style="font-size:1rem; margin-bottom:0.75rem; color:var(--primary);">2. Direct Labour & Overheads Allocation (Step 8)</h3>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                <div>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.25rem;">
+                        Labour Cost (₹)
+                    </label>
+                    {{ form.labour_cost }}
+                    <small style="color:var(--text-muted); font-size:0.75rem;">Benchmark: ₹1,200.00 direct labour</small>
+                    {% if form.labour_cost.errors %}<div style="color:#b91c1c; font-size:0.8rem;">{{ form.labour_cost.errors.0 }}</div>{% endif %}
+                </div>
+                <div>
+                    <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.25rem;">
+                        Gas / Power / Overheads (₹)
+                    </label>
+                    {{ form.overhead_cost }}
+                    <small style="color:var(--text-muted); font-size:0.75rem;">Benchmark: ₹600.00 gas/power</small>
+                    {% if form.overhead_cost.errors %}<div style="color:#b91c1c; font-size:0.8rem;">{{ form.overhead_cost.errors.0 }}</div>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div style="background:#fffbeb; border:1px solid #fef3c7; padding:0.85rem; border-radius:4px; margin-bottom:1.25rem; font-size:0.8rem; color:#92400e;">
+            ⚠️ <strong>Ledger Impact:</strong> Completing this run will record:
+            <ul style="margin:0.25rem 0 0 1.25rem; padding:0;">
+                <li><code>PRODUCTION_OUTPUT</code> for finished packets (+Good Output).</li>
+                <li><code>PRODUCTION_ISSUE</code> for packaging (pouches = Good + Damaged, cartons = Cartons Used).</li>
+            </ul>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
+            <a href="{% url 'production:production_run_detail' run.pk %}"
+               style="background:#f1f5f9; color:#475569; padding:0.5rem 1rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                Cancel
+            </a>
+            <button type="submit"
+                    style="background:#16a34a; color:#fff; border:none; padding:0.5rem 1.25rem; border-radius:4px; font-size:0.85rem; font-weight:600; cursor:pointer;">
+                ✓ Complete Run & Update Stock
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block title %}Purchase Orders — Order-to-Audit{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div>
+            <h2>🛒 Purchase Orders</h2>
+            <p style="color:var(--text-muted); font-size:0.9rem;">
+                Raw material and packaging receipts that increase stock through the ledger.
+            </p>
+        </div>
+        {% if user.role == 'admin' or user.role == 'production' or user.is_superuser %}
+        <a href="{% url 'purchases:purchase_create' %}"
+           style="display:inline-block; background:#0284c7; color:#fff; padding:0.5rem 1rem;
+                  border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+            + New Purchase Order
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card" style="padding:0; overflow-x:auto;">
+    <table style="width:100%; border-collapse:collapse; font-size:0.875rem;">
+        <thead>
+            <tr>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:left;">PO Number</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:left;">Supplier</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:left;">Order Date</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:left;">Status</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc; text-align:right;">Total Value</th>
+                <th style="padding:0.65rem 0.8rem; border-bottom:1px solid var(--border); background:#f8fafc;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for po in purchase_orders %}
+            <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:0.65rem 0.8rem; font-family:monospace; font-weight:600;">
+                    <a href="{% url 'purchases:purchase_detail' po.pk %}" style="color:var(--primary); text-decoration:none;">
+                        {{ po.po_number }}
+                    </a>
+                </td>
+                <td style="padding:0.65rem 0.8rem;">{{ po.supplier.name }}</td>
+                <td style="padding:0.65rem 0.8rem; color:var(--text-muted);">{{ po.order_date|date:"d M Y" }}</td>
+                <td style="padding:0.65rem 0.8rem;">
+                    {% if po.status == 'draft' %}
+                        <span class="badge" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">Draft</span>
+                    {% elif po.status == 'received' %}
+                        <span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0;">✓ Received</span>
+                    {% else %}
+                        <span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;">Cancelled</span>
+                    {% endif %}
+                </td>
+                <td style="padding:0.65rem 0.8rem; text-align:right; font-weight:600;">₹{{ po.total_value }}</td>
+                <td style="padding:0.65rem 0.8rem; text-align:right;">
+                    <a href="{% url 'purchases:purchase_detail' po.pk %}"
+                       style="color:#0284c7; font-weight:600; text-decoration:none; font-size:0.82rem;">
+                        View →
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" style="padding:2rem; text-align:center; color:var(--text-muted);">
+                    No purchase orders yet.
+                    {% if user.role == 'admin' or user.role == 'production' or user.is_superuser %}
+                    <a href="{% url 'purchases:purchase_create' %}">Create the first one →</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
