@@ -189,11 +189,11 @@ def build_invoice_pdf(invoice) -> BytesIO:
     ]
     if customer.address:
         bill_to.append(Paragraph(customer.address, small))
-    bill_to.append(Paragraph(f"{customer.city + ', ' if customer.city else ''}{customer.state} – {customer.state_code}", small))
+    bill_to.append(Paragraph(f"{customer.city + ', ' if customer.city else ''}{customer.state} - {customer.state_code}", small))
     if invoice.customer_gstin:
         bill_to.append(Paragraph(f"GSTIN: {invoice.customer_gstin}", small))
 
-    tax_type_str = "Inter-state Supply (IGST)" if invoice.is_interstate else "Intra-state Supply — Tamil Nadu (CGST + SGST)"
+    tax_type_str = "Inter-state Supply (IGST)" if invoice.is_interstate else "Intra-state Supply - Tamil Nadu (CGST + SGST)"
     order_col = [
         Paragraph("<b>ORDER REFERENCE</b>", bold),
         Paragraph(f"<b>SO No:</b> {invoice.order.order_number}", small),
@@ -335,12 +335,12 @@ def build_invoice_pdf(invoice) -> BytesIO:
     # ── Dispatch / Cancellation Status ────────────────────────────────────────
     if invoice.is_dispatched:
         story.append(Paragraph(
-            f"<font color='green'><b>✓ Dispatched:</b> {invoice.dispatch_ledger_note}</font>",
+            f"<font color='green'><b>Dispatched:</b> {invoice.dispatch_ledger_note}</font>",
             small,
         ))
     if invoice.status == 'cancelled':
         story.append(Paragraph(
-            f"<font color='red'><b>CANCELLED</b> — Credit Note: {invoice.credit_note_number} | "
+            f"<font color='red'><b>CANCELLED</b> - Credit Note: {invoice.credit_note_number} | "
             f"Reason: {invoice.cancellation_reason}</font>",
             small,
         ))

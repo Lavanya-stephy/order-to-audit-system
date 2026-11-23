@@ -152,6 +152,10 @@ class SalesOrder(models.Model):
         return self.check_stock_coverage()['is_fully_covered']
 
     @property
+    def total_shortage(self) -> Decimal:
+        return self.check_stock_coverage()['total_shortage']
+
+    @property
     def status_badge_class(self) -> str:
         mapping = {
             OrderStatus.SUBMITTED: 'badge-submitted',

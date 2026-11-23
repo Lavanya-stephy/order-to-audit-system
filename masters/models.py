@@ -126,6 +126,11 @@ class RawMaterial(models.Model):
     def unit_rate(self) -> Decimal:
         return self.standard_cost
 
+    @property
+    def short_name(self) -> str:
+        """Short name before any bracket, e.g. 'Carton' from 'Carton (holds 20 pkts)'."""
+        return self.name.split('(')[0].strip()
+
 
 class PackagingItem(models.Model):
     name = models.CharField(max_length=150, unique=True, help_text="e.g. 200 g pouch, Carton (holds 20 pkts)")
@@ -163,6 +168,11 @@ class PackagingItem(models.Model):
     @property
     def unit_rate(self) -> Decimal:
         return self.standard_cost
+
+    @property
+    def short_name(self) -> str:
+        """Short name before any bracket, e.g. 'Carton' from 'Carton (holds 20 pkts)'."""
+        return self.name.split('(')[0].strip()
 
 
 class Product(models.Model):

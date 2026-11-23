@@ -141,6 +141,28 @@ class ProductionRun(models.Model):
         return abs(self.yield_variance_pct) > tolerance
 
     @property
+    def flagged_reasons(self) -> list:
+        """List of reasons causing variance flag, using short item names."""
+        reasons = []
+        if self.is_yield_variance_flagged:
+            reasons.append('Yield')
+        for item in self.items.all():
+            if item.is_variance_flagged:
+                reasons.append(item.short_name)
+        return reasons
+
+    @property
+    def has_variance_flag(self) -> bool:
+        return bool(self.flagged_reasons)
+
+    @property
+    def flag_label(self) -> str:
+        reasons = self.flagged_reasons
+        if reasons:
+            return f"FLAGGED ({', '.join(reasons)})"
+        return "Normal"
+
+    @property
     def total_raw_material_cost(self) -> Decimal:
         """Sum of actual costs for raw materials consumed."""
         total = Decimal('0.00')
@@ -263,6 +285,14 @@ class ProductionRunItem(models.Model):
     @property
     def item_name(self) -> str:
         return self.raw_material.name if self.raw_material else self.packaging_item.name
+
+    @property
+    def short_name(self) -> str:
+        """Short item name, e.g. the part of the name before any bracket."""
+        raw = self.item
+        if raw and hasattr(raw, 'short_name'):
+            return raw.short_name
+        return self.item_name.split('(')[0].strip()
 
     @property
     def item_code(self) -> str:

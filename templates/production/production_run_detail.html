@@ -16,6 +16,11 @@
                 {% else %}
                     <span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;">Cancelled</span>
                 {% endif %}
+                {% if run.has_variance_flag %}
+                    <span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700;">
+                        ⚠️ {{ run.flag_label }}
+                    </span>
+                {% endif %}
             </div>
             <p style="color:var(--text-muted); font-size:0.875rem; margin-top:0.25rem;">
                 Product: <strong>{{ run.product.name }}</strong> &bull; Recipe BOM: <strong>{{ run.bom.name }}</strong> (Batch: {{ run.batch_multiplier }})
@@ -79,7 +84,13 @@
                 {% endif %}
             </div>
             <div style="font-size:0.75rem; color:var(--text-muted);">
-                {% if run.is_yield_variance_flagged %}Exceeds ±{{ run.variance_tolerance_pct }}% tolerance!{% else %}Within ±{{ run.variance_tolerance_pct }}% tolerance{% endif %}
+                {% if run.has_variance_flag %}
+                    <span style="color:#b91c1c; font-weight:600;">{{ run.flag_label }}</span>
+                {% elif run.is_yield_variance_flagged %}
+                    Exceeds ±{{ run.variance_tolerance_pct }}% tolerance!
+                {% else %}
+                    Within ±{{ run.variance_tolerance_pct }}% tolerance
+                {% endif %}
             </div>
         </div>
 

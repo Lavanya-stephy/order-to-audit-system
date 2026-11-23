@@ -555,11 +555,13 @@ def get_production_variance_report_data(
         for item in all_items:
             is_rm = item.raw_material is not None
             var_pct = item.consumption_variance_pct
+            short_name = getattr(item, 'short_name', None) or item.item_name.split('(')[0].strip()
             if item.is_variance_flagged:
-                flagged_reasons.append(item.item_name)
+                flagged_reasons.append(short_name)
 
             material_consumption.append({
                 'item_name': item.item_name,
+                'short_name': short_name,
                 'item_type': 'Raw Material' if is_rm else 'Packaging',
                 'standard_quantity': item.standard_quantity,
                 'actual_quantity': item.actual_quantity,

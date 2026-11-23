@@ -1,50 +1,706 @@
 {% extends 'base.html' %}
+{% block title %}Owner Executive Dashboard — Order-to-Audit{% endblock %}
 
-{% block title %}Owner Dashboard - Order-to-Audit{% endblock %}
+{% block extra_head %}
+<style>
+    .owner-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .kpi-stat-card {
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1.1rem 1.25rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        position: relative;
+        overflow: hidden;
+    }
+    .kpi-stat-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+    }
+    .kpi-blue::before { background: #0284c7; }
+    .kpi-green::before { background: #16a34a; }
+    .kpi-red::before { background: #dc2626; }
+    .kpi-amber::before { background: #d97706; }
+    .kpi-purple::before { background: #7c3aed; }
+
+    .kpi-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        font-weight: 700;
+        margin-bottom: 0.35rem;
+    }
+    .kpi-val {
+        font-size: 1.5rem;
+        font-weight: 800;
+        line-height: 1.2;
+        color: var(--text-dark);
+    }
+    .kpi-sub {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        margin-top: 0.35rem;
+    }
+    .sec-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 0.85rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--border);
+    }
+    .sec-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .dash-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }
+    .dash-table th {
+        background: #f8fafc;
+        border-bottom: 2px solid var(--border);
+        padding: 0.65rem 0.75rem;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        font-weight: 700;
+        text-align: left;
+    }
+    .dash-table td {
+        padding: 0.65rem 0.75rem;
+        border-bottom: 1px solid var(--border);
+    }
+    .dash-table tr:hover td {
+        background: #f8fafc;
+    }
+    .num { text-align: right; }
+    .badge-status {
+        display: inline-block;
+        padding: 0.2rem 0.55rem;
+        border-radius: 4px;
+        font-size: 0.72rem;
+        font-weight: 700;
+    }
+    .badge-submitted { background: #e0f2fe; color: #0369a1; }
+    .badge-approved { background: #dbeafe; color: #1d4ed8; }
+    .badge-invoiced { background: #fef3c7; color: #92400e; }
+    .badge-dispatched { background: #dcfce7; color: #15803d; }
+    .badge-flagged { background: #fee2e2; color: #b91c1c; font-weight: 700; }
+    .badge-normal { background: #dcfce7; color: #15803d; font-weight: 600; }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="card">
+<!-- Executive Header -->
+<div class="card" style="margin-bottom:1.25rem;">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
         <div>
-            <h2>👑 Executive Business Overview</h2>
-            <p style="color:var(--text-muted); font-size:0.9rem;">
-                Logged in as <strong>{{ user.username }}</strong> &bull; Role: <span class="role-badge" style="background:#b45309; color:#fff;">Owner</span>
+            <div style="display:flex; align-items:center; gap:0.6rem;">
+                <h2 style="margin:0; font-size:1.4rem;">👑 Owner Executive Dashboard</h2>
+                <span class="badge" style="background:#b45309; color:#fff; font-weight:700;">Owner</span>
+            </div>
+            <p style="color:var(--text-muted); font-size:0.875rem; margin-top:0.25rem; margin-bottom:0;">
+                Today: <strong>{{ today|date:"l, d F Y" }}</strong> &bull; Complete operational &amp; financial summary
             </p>
         </div>
-        <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
-            <span class="badge" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a;">
-                Executive Pulse
-            </span>
-            <a href="{% url 'inventory:stock_summary' %}" style="display:inline-block; background:#0284c7; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <a href="{% url 'inventory:stock_summary' %}" class="btn-exp" style="padding:0.4rem 0.8rem; font-size:0.8rem; text-decoration:none; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:4px; font-weight:600;">
                 📊 Stock Summary
             </a>
-            <a href="{% url 'inventory:stock_ledger' %}" style="display:inline-block; background:#334155; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
-                📜 Stock Ledger
+            <a href="{% url 'reports:production_variance' %}" class="btn-exp" style="padding:0.4rem 0.8rem; font-size:0.8rem; text-decoration:none; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:4px; font-weight:600;">
+                📉 Variance Report
+            </a>
+            <a href="{% url 'production:product_costing' %}" class="btn-exp" style="padding:0.4rem 0.8rem; font-size:0.8rem; text-decoration:none; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:4px; font-weight:600;">
+                💰 Product Costing
+            </a>
+            <a href="{% url 'invoices:ageing_report' %}" class="btn-exp" style="padding:0.4rem 0.8rem; font-size:0.8rem; text-decoration:none; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:4px; font-weight:600;">
+                📈 Receivables Ageing
+            </a>
+            <a href="{% url 'reports:hub' %}" class="btn-exp" style="padding:0.4rem 0.8rem; font-size:0.8rem; text-decoration:none; background:#0284c7; color:#fff; border:none; border-radius:4px; font-weight:600;">
+                📑 All Reports
             </a>
         </div>
     </div>
 </div>
 
-<div class="grid">
-    <div class="feature-card">
-        <h3>📈 Daily Sales & Orders</h3>
-        <p>Real-time order intake, today's dispatches, and pending approval queues across all salesmen.</p>
-    </div>
-    <div class="feature-card">
-        <h3>⚠️ Variance & Wastage Alerts</h3>
-        <p>Immediate notifications for any production run exceeding tolerance thresholds (e.g., >3% variance).</p>
-    </div>
-    <div class="feature-card">
-        <h3>🏷️ Cost per Packet & Margins</h3>
-        <p>Dynamic packet costing combining BOM purchase rates with allocated factory labour and power overheads.</p>
-    </div>
-    <div class="feature-card">
-        <h3>💵 Cash Flow & Stock Holdings</h3>
-        <p>Total pending receivables, distributor dues, and working capital locked in raw materials vs finished goods.</p>
-        <div style="margin-top:0.75rem; display:flex; gap:0.75rem;">
-            <a href="{% url 'inventory:stock_summary' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">Stock Summary &rarr;</a>
-            <a href="{% url 'inventory:stock_ledger' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">Stock Ledger &rarr;</a>
+<!-- Executive Top 5 KPI Cards Row -->
+<div class="owner-kpi-grid">
+    <!-- 1. Today's Orders -->
+    <div class="kpi-stat-card kpi-blue">
+        <div class="kpi-label">Today's Orders</div>
+        <div class="kpi-val" style="color:#0284c7;">
+            {{ todays_orders_count }} <span style="font-size:0.95rem; font-weight:500;">Orders</span>
+        </div>
+        <div class="kpi-sub">
+            Total Value: <strong>₹{{ todays_orders_total_val }}</strong>
+            {% if pending_approval_count > 0 %}
+                &bull; <span style="color:#b45309;">{{ pending_approval_count }} pending</span>
+            {% endif %}
         </div>
     </div>
+
+    <!-- 2. Stock Levels -->
+    <div class="kpi-stat-card kpi-green">
+        <div class="kpi-label">Stock Levels</div>
+        <div class="kpi-val" style="color:#16a34a;">
+            ₹{{ total_stock_valuation }}
+        </div>
+        <div class="kpi-sub">
+            FG: <strong>₹{{ fg_valuation }}</strong> | RM: <strong>₹{{ rm_valuation }}</strong>
+            {% if low_stock_items %}
+                &bull; <span style="color:#dc2626; font-weight:700;">⚠️ {{ low_stock_items|length }} low</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 3. Variance Alerts -->
+    <div class="kpi-stat-card {% if flagged_runs_count > 0 %}kpi-red{% else %}kpi-green{% endif %}">
+        <div class="kpi-label">Variance Alerts</div>
+        <div class="kpi-val" style="color:{% if flagged_runs_count > 0 %}#dc2626{% else %}#16a34a{% endif %};">
+            {{ flagged_runs_count }} <span style="font-size:0.95rem; font-weight:500;">Flagged</span>
+        </div>
+        <div class="kpi-sub">
+            {% if flagged_runs_count > 0 %}
+                <span style="color:#dc2626; font-weight:700;">⚠️ Production exceeds tolerance (±3%)</span>
+            {% else %}
+                <span style="color:#16a34a;">✓ All runs within ±3% tolerance</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 4. Cost per Packet -->
+    <div class="kpi-stat-card kpi-purple">
+        <div class="kpi-label">Cost per Packet</div>
+        <div class="kpi-val" style="color:#7c3aed;">
+            {% if product_costing_list.0.cost_per_packet %}
+                ₹{{ product_costing_list.0.cost_per_packet }}
+            {% else %}
+                —
+            {% endif %}
+        </div>
+        <div class="kpi-sub">
+            {% if product_costing_list.0.margin_per_packet %}
+                SP: ₹{{ product_costing_list.0.selling_price }} &bull; Margin: <strong>₹{{ product_costing_list.0.margin_per_packet }} ({{ product_costing_list.0.margin_pct }}%)</strong>
+            {% else %}
+                Weighted average costing
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 5. Outstanding Dues -->
+    <div class="kpi-stat-card kpi-amber">
+        <div class="kpi-label">Outstanding Dues</div>
+        <div class="kpi-val" style="color:#d97706;">
+            ₹{{ total_receivables }}
+        </div>
+        <div class="kpi-sub">
+            0-30 Days: <strong>₹{{ ageing_summary.total_0_30 }}</strong>
+            {% if ageing_summary.total_31_60 > 0 or ageing_summary.total_90_plus > 0 %}
+                &bull; <span style="color:#dc2626;">Dues pending</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- =================================================================== -->
+<!-- SECTION 1: TODAY'S ORDERS & PIPELINE                                -->
+<!-- =================================================================== -->
+<div class="card" style="margin-bottom:1.5rem; padding:1.25rem;">
+    <div class="sec-header">
+        <h3 class="sec-title">
+            🛒 Today's Orders &amp; Pipeline
+        </h3>
+        <div style="font-size:0.8rem; color:var(--text-muted); display:flex; gap:0.75rem; align-items:center;">
+            <span>Submitted: <strong style="color:#0369a1;">{{ pending_approval_count }}</strong></span>
+            <span>Approved: <strong style="color:#1d4ed8;">{{ approved_count }}</strong></span>
+            <span>Dispatched Today: <strong style="color:#15803d;">{{ dispatched_today_count }}</strong></span>
+            <a href="{% url 'orders:admin_order_list' %}" style="color:var(--primary); text-decoration:none; font-weight:600;">
+                View All Orders &rarr;
+            </a>
+        </div>
+    </div>
+
+    {% if todays_orders %}
+    <div style="overflow-x:auto;">
+        <table class="dash-table">
+            <thead>
+                <tr>
+                    <th>Order No</th>
+                    <th>Customer</th>
+                    <th>Salesman</th>
+                    <th>Product</th>
+                    <th class="num">Quantity</th>
+                    <th class="num">Amount (₹)</th>
+                    <th style="text-align:center;">Stock Coverage</th>
+                    <th style="text-align:center;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in todays_orders %}
+                <tr>
+                    <td style="font-family:monospace; font-weight:700;">
+                        <a href="{% url 'orders:order_detail' order.pk %}" style="color:var(--primary); text-decoration:none;">
+                            {{ order.order_number }}
+                        </a>
+                    </td>
+                    <td style="font-weight:600;">{{ order.customer.name }}</td>
+                    <td style="color:var(--text-muted);">{{ order.salesman.username }}</td>
+                    <td>
+                        {% for line in order.lines.all %}
+                            {{ line.product.name }}{% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                    </td>
+                    <td class="num">{{ order.total_quantity }} pkts</td>
+                    <td class="num" style="font-weight:700;">₹{{ order.grand_total }}</td>
+                    <td style="text-align:center;">
+                        {% if order.status == 'dispatched' %}
+                            <span style="font-size:0.75rem; color:#15803d; font-weight:600;">✓ Dispatched</span>
+                        {% elif order.is_stock_covered %}
+                            <span style="font-size:0.75rem; color:#15803d; font-weight:600;">✓ In Stock</span>
+                        {% else %}
+                            <span style="font-size:0.75rem; color:#b91c1c; font-weight:700; background:#fee2e2; padding:0.15rem 0.4rem; border-radius:3px;">
+                                ⚠️ {{ order.total_shortage|floatformat:0 }} pkts short
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:center;">
+                        <span class="badge-status badge-{{ order.status }}">
+                            {{ order.get_status_display }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="background:#f8fafc; padding:0.9rem 1rem; border-radius:6px; margin-bottom:1rem; font-size:0.85rem; color:var(--text-muted);">
+        No orders placed yet today. Showing recent orders below:
+    </div>
+    {% if recent_orders %}
+    <div style="overflow-x:auto;">
+        <table class="dash-table">
+            <thead>
+                <tr>
+                    <th>Order No</th>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Salesman</th>
+                    <th class="num">Quantity</th>
+                    <th class="num">Amount (₹)</th>
+                    <th style="text-align:center;">Stock Coverage</th>
+                    <th style="text-align:center;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in recent_orders %}
+                <tr>
+                    <td style="font-family:monospace; font-weight:700;">
+                        <a href="{% url 'orders:order_detail' order.pk %}" style="color:var(--primary); text-decoration:none;">
+                            {{ order.order_number }}
+                        </a>
+                    </td>
+                    <td>{{ order.created_at|date:"d M Y" }}</td>
+                    <td style="font-weight:600;">{{ order.customer.name }}</td>
+                    <td style="color:var(--text-muted);">{{ order.salesman.username }}</td>
+                    <td class="num">{{ order.total_quantity }} pkts</td>
+                    <td class="num" style="font-weight:700;">₹{{ order.grand_total }}</td>
+                    <td style="text-align:center;">
+                        {% if order.status == 'dispatched' %}
+                            <span style="font-size:0.75rem; color:#15803d; font-weight:600;">✓ Dispatched</span>
+                        {% elif order.is_stock_covered %}
+                            <span style="font-size:0.75rem; color:#15803d; font-weight:600;">✓ In Stock</span>
+                        {% else %}
+                            <span style="font-size:0.75rem; color:#b91c1c; font-weight:700; background:#fee2e2; padding:0.15rem 0.4rem; border-radius:3px;">
+                                ⚠️ {{ order.total_shortage|floatformat:0 }} pkts short
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:center;">
+                        <span class="badge-status badge-{{ order.status }}">
+                            {{ order.get_status_display }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+
+<!-- =================================================================== -->
+<!-- SECTION 2: CURRENT STOCK LEVELS                                     -->
+<!-- =================================================================== -->
+<div class="card" style="margin-bottom:1.5rem; padding:1.25rem;">
+    <div class="sec-header">
+        <h3 class="sec-title">
+            📦 Stock Levels (Finished Goods, Raw &amp; Packaging)
+        </h3>
+        <div style="font-size:0.8rem; color:var(--text-muted);">
+            Total Inventory Valuation: <strong style="color:#15803d; font-size:0.95rem;">₹{{ total_stock_valuation }}</strong>
+            &bull;
+            <a href="{% url 'inventory:stock_ledger' %}" style="color:var(--primary); text-decoration:none; font-weight:600;">
+                View Stock Ledger &rarr;
+            </a>
+        </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:1.25rem;">
+        <!-- Finished Goods -->
+        <div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                <strong style="font-size:0.85rem; color:#15803d;">🏭 Finished Goods Stock</strong>
+                <span style="font-size:0.75rem; color:var(--text-muted);">Valuation: ₹{{ fg_valuation }}</span>
+            </div>
+            <table class="dash-table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th class="num">Available Stock</th>
+                        <th>Unit</th>
+                        <th class="num">Valuation (₹)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in fg_stock %}
+                    <tr>
+                        <td style="font-weight:600;">{{ item.name }}</td>
+                        <td class="num" style="font-weight:700; color:#15803d; font-size:0.95rem;">{{ item.closing }}</td>
+                        <td>{{ item.unit.symbol }}</td>
+                        <td class="num">₹{{ item.valuation }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" style="text-align:center; color:var(--text-muted);">No finished goods found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Raw Materials -->
+        <div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                <strong style="font-size:0.85rem; color:#0369a1;">🌾 Raw Materials Stock</strong>
+                <span style="font-size:0.75rem; color:var(--text-muted);">Valuation: ₹{{ rm_valuation }}</span>
+            </div>
+            <table class="dash-table">
+                <thead>
+                    <tr>
+                        <th>Material</th>
+                        <th class="num">Stock on Hand</th>
+                        <th>Unit</th>
+                        <th class="num">Valuation (₹)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in rm_stock %}
+                    <tr>
+                        <td style="font-weight:600;">{{ item.name }}</td>
+                        <td class="num" style="font-weight:700;">{{ item.closing }}</td>
+                        <td>{{ item.unit.symbol }}</td>
+                        <td class="num">₹{{ item.valuation }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" style="text-align:center; color:var(--text-muted);">No raw materials found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Packaging Materials -->
+        <div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                <strong style="font-size:0.85rem; color:#7c3aed;">📦 Packaging Stock</strong>
+                <span style="font-size:0.75rem; color:var(--text-muted);">Valuation: ₹{{ pkg_valuation }}</span>
+            </div>
+            <table class="dash-table">
+                <thead>
+                    <tr>
+                        <th>Packaging Item</th>
+                        <th class="num">Stock on Hand</th>
+                        <th>Unit</th>
+                        <th class="num">Valuation (₹)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in pkg_stock %}
+                    <tr>
+                        <td style="font-weight:600;">{{ item.name }}</td>
+                        <td class="num" style="font-weight:700;">{{ item.closing }}</td>
+                        <td>{{ item.unit.symbol }}</td>
+                        <td class="num">₹{{ item.valuation }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" style="text-align:center; color:var(--text-muted);">No packaging items found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- =================================================================== -->
+<!-- SECTION 3: VARIANCE ALERTS                                          -->
+<!-- =================================================================== -->
+<div class="card" style="margin-bottom:1.5rem; padding:1.25rem;">
+    <div class="sec-header">
+        <h3 class="sec-title">
+            ⚠️ Variance &amp; Wastage Alerts
+        </h3>
+        <div style="font-size:0.8rem;">
+            <a href="{% url 'reports:production_variance' %}" style="color:var(--primary); text-decoration:none; font-weight:600;">
+                Full Production Variance Report &rarr;
+            </a>
+        </div>
+    </div>
+
+    {% if flagged_runs %}
+    <div style="overflow-x:auto;">
+        <table class="dash-table">
+            <thead>
+                <tr>
+                    <th>Run Number</th>
+                    <th>Date</th>
+                    <th>Product</th>
+                    <th class="num">Expected Yield</th>
+                    <th class="num">Actual Good</th>
+                    <th class="num">Yield Var %</th>
+                    <th class="num">Damaged Pouches</th>
+                    <th>Flagged Cause(s)</th>
+                    <th style="text-align:center;">Alert Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rd in flagged_runs %}
+                {% with run=rd.run %}
+                <tr style="background:#fff7ed;">
+                    <td style="font-family:monospace; font-weight:700;">
+                        <a href="{% url 'production:production_run_detail' run.pk %}" style="color:var(--primary); text-decoration:none;">
+                            {{ run.run_number }}
+                        </a>
+                    </td>
+                    <td>{{ run.start_date|date:"d M Y" }}</td>
+                    <td style="font-weight:600;">{{ run.product.name }}</td>
+                    <td class="num">{{ run.expected_yield }}</td>
+                    <td class="num" style="font-weight:700;">{{ run.actual_yield }}</td>
+                    <td class="num" style="font-weight:700; color:{% if run.yield_variance_pct < 0 %}#b91c1c{% else %}#15803d{% endif %};">
+                        {{ run.yield_variance_pct }}%
+                    </td>
+                    <td class="num" style="color:#b45309; font-weight:600;">{{ run.damaged_pouches }} pcs</td>
+                    <td>
+                        <span style="font-weight:700; color:#b91c1c;">
+                            {{ rd.flag_label }}
+                        </span>
+                        {% for mc in rd.material_consumption %}
+                            {% if mc.is_flagged %}
+                                <div style="font-size:0.75rem; margin-top:0.2rem;">
+                                    &bull; {{ mc.item_name }}: 
+                                    {% if mc.variance_quantity > 0 %}+{% endif %}{{ mc.variance_quantity }} {{ mc.unit }}
+                                    ({% if mc.variance_pct > 0 %}+{% endif %}{{ mc.variance_pct }}%)
+                                    {% if mc.variance_quantity > 0 %}
+                                        <span style="color:#b91c1c; font-weight:700;">[OVER]</span>
+                                    {% else %}
+                                        <span style="color:#92400e; font-weight:700;">[UNDER]</span>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </td>
+                    <td style="text-align:center;">
+                        <span class="badge-status badge-flagged">
+                            ⚠️ FLAGGED
+                        </span>
+                    </td>
+                </tr>
+                {% endwith %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:0.9rem 1.25rem; font-size:0.875rem; color:#15803d; font-weight:600; display:flex; align-items:center; gap:0.5rem;">
+        <span>✓</span> All production runs are operating normally within standard tolerance thresholds (±3.00%). No variance alerts detected.
+    </div>
+    {% endif %}
+</div>
+
+<!-- =================================================================== -->
+<!-- SECTION 4: PRODUCT COSTING & PROFIT MARGINS                         -->
+<!-- =================================================================== -->
+<div class="card" style="margin-bottom:1.5rem; padding:1.25rem;">
+    <div class="sec-header">
+        <h3 class="sec-title">
+            🏷️ Cost per Packet &amp; Margin Analysis
+        </h3>
+        <div style="font-size:0.8rem; color:var(--text-muted);">
+            Valuation: <strong>Weighted Average Cost</strong> &bull;
+            <a href="{% url 'production:product_costing' %}" style="color:var(--primary); text-decoration:none; font-weight:600;">
+                Costing Details &rarr;
+            </a>
+        </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+        <table class="dash-table">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Latest Run</th>
+                    <th class="num">Raw Mat (₹)</th>
+                    <th class="num">Packaging (₹)</th>
+                    <th class="num">Labour (₹)</th>
+                    <th class="num">Power (₹)</th>
+                    <th class="num">Total Cost (₹)</th>
+                    <th class="num" style="color:#0369a1;">Cost / Packet (₹)</th>
+                    <th class="num">Selling Price (₹)</th>
+                    <th class="num" style="color:#15803d;">Margin / Pkt (₹)</th>
+                    <th class="num" style="color:#15803d;">Margin %</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in product_costing_list %}
+                <tr>
+                    <td style="font-weight:700;">{{ item.product.name }}</td>
+                    <td style="font-family:monospace; font-size:0.8rem;">
+                        {% if item.latest_run %}
+                            <a href="{% url 'production:production_run_detail' item.latest_run.pk %}" style="color:var(--primary); text-decoration:none;">
+                                {{ item.latest_run.run_number }}
+                            </a>
+                        {% else %}
+                            <span style="color:var(--text-muted);">No runs yet</span>
+                        {% endif %}
+                    </td>
+                    <td class="num">{% if item.raw_material_cost %}₹{{ item.raw_material_cost }}{% else %}—{% endif %}</td>
+                    <td class="num">{% if item.packaging_cost %}₹{{ item.packaging_cost }}{% else %}—{% endif %}</td>
+                    <td class="num">{% if item.labour_cost %}₹{{ item.labour_cost }}{% else %}—{% endif %}</td>
+                    <td class="num">{% if item.overhead_cost %}₹{{ item.overhead_cost }}{% else %}—{% endif %}</td>
+                    <td class="num" style="font-weight:600;">{% if item.total_production_cost %}₹{{ item.total_production_cost }}{% else %}—{% endif %}</td>
+                    <td class="num" style="font-weight:800; color:#0369a1; font-size:1rem;">
+                        {% if item.cost_per_packet %}₹{{ item.cost_per_packet }}{% else %}—{% endif %}
+                    </td>
+                    <td class="num" style="font-weight:600;">₹{{ item.selling_price }}</td>
+                    <td class="num" style="font-weight:800; color:#15803d;">
+                        {% if item.margin_per_packet %}₹{{ item.margin_per_packet }}{% else %}—{% endif %}
+                    </td>
+                    <td class="num" style="font-weight:800; color:#15803d;">
+                        {% if item.margin_pct %}{{ item.margin_pct }}%{% else %}—{% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="11" style="text-align:center; padding:1.5rem; color:var(--text-muted);">
+                        No products available.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div style="margin-top:0.6rem; font-size:0.75rem; color:var(--text-muted);">
+        ℹ️ <em>Valuation Method: Weighted average cost from purchase ledger. Damaged packaging absorbed as direct loss. Direct labour and power overheads allocated fully to batch packets produced.</em>
+    </div>
+</div>
+
+<!-- =================================================================== -->
+<!-- SECTION 5: OUTSTANDING DUES & CUSTOMER RECEIVABLES                  -->
+<!-- =================================================================== -->
+<div class="card" style="margin-bottom:1.5rem; padding:1.25rem;">
+    <div class="sec-header">
+        <h3 class="sec-title">
+            💵 Outstanding Dues &amp; Receivables Ageing
+        </h3>
+        <div style="font-size:0.8rem; color:var(--text-muted);">
+            Total Receivables: <strong style="color:#d97706; font-size:0.95rem;">₹{{ total_receivables }}</strong>
+            &bull;
+            <a href="{% url 'invoices:ageing_report' %}" style="color:var(--primary); text-decoration:none; font-weight:600;">
+                Full Ageing Report &rarr;
+            </a>
+        </div>
+    </div>
+
+    <!-- Ageing Summary Buckets -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:0.75rem; margin-bottom:1.25rem;">
+        <div style="background:#f8fafc; border:1px solid var(--border); border-radius:6px; padding:0.75rem; text-align:center;">
+            <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-muted); font-weight:700;">0–30 Days (Current)</div>
+            <div style="font-size:1.15rem; font-weight:800; color:#15803d; margin-top:0.25rem;">₹{{ ageing_summary.total_0_30 }}</div>
+        </div>
+        <div style="background:#f8fafc; border:1px solid var(--border); border-radius:6px; padding:0.75rem; text-align:center;">
+            <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-muted); font-weight:700;">31–60 Days</div>
+            <div style="font-size:1.15rem; font-weight:800; color:#0369a1; margin-top:0.25rem;">₹{{ ageing_summary.total_31_60 }}</div>
+        </div>
+        <div style="background:#f8fafc; border:1px solid var(--border); border-radius:6px; padding:0.75rem; text-align:center;">
+            <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-muted); font-weight:700;">61–90 Days</div>
+            <div style="font-size:1.15rem; font-weight:800; color:#b45309; margin-top:0.25rem;">₹{{ ageing_summary.total_61_90 }}</div>
+        </div>
+        <div style="background:#f8fafc; border:1px solid var(--border); border-radius:6px; padding:0.75rem; text-align:center;">
+            <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-muted); font-weight:700;">90+ Days (Overdue)</div>
+            <div style="font-size:1.15rem; font-weight:800; color:#b91c1c; margin-top:0.25rem;">₹{{ ageing_summary.total_90_plus }}</div>
+        </div>
+    </div>
+
+    <!-- Customer-wise Outstanding List -->
+    {% if top_debtors %}
+    <div style="overflow-x:auto;">
+        <table class="dash-table">
+            <thead>
+                <tr>
+                    <th>Customer Name</th>
+                    <th>Channel</th>
+                    <th>State</th>
+                    <th class="num">0–30d (₹)</th>
+                    <th class="num">31–60d (₹)</th>
+                    <th class="num">61–90d (₹)</th>
+                    <th class="num">90+d (₹)</th>
+                    <th class="num" style="color:#b45309;">Total Due (₹)</th>
+                    <th style="text-align:center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for debtor in top_debtors %}
+                <tr>
+                    <td style="font-weight:700;">{{ debtor.name }}</td>
+                    <td>{{ debtor.customer_type }}</td>
+                    <td>{{ debtor.state }}</td>
+                    <td class="num">₹{{ debtor.bucket_0_30 }}</td>
+                    <td class="num">₹{{ debtor.bucket_31_60 }}</td>
+                    <td class="num">₹{{ debtor.bucket_61_90 }}</td>
+                    <td class="num">₹{{ debtor.bucket_90_plus }}</td>
+                    <td class="num" style="font-weight:800; color:#b45309; font-size:0.95rem;">
+                        ₹{{ debtor.total_outstanding }}
+                    </td>
+                    <td style="text-align:center;">
+                        <a href="{% url 'invoices:customer_balances' %}" style="font-size:0.78rem; color:var(--primary); font-weight:600; text-decoration:none; padding:0.2rem 0.5rem; background:#f1f5f9; border-radius:4px;">
+                            View Balances &rarr;
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:0.9rem 1.25rem; font-size:0.875rem; color:#15803d; font-weight:600;">
+        ✓ Zero outstanding customer dues! All issued invoices have been fully collected.
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

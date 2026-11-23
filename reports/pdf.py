@@ -424,7 +424,7 @@ def build_stock_summary_pdf(summary_rows: list, period_str: str = "All Time") ->
             Paragraph("<b>Opening</b>", styles['th']),
             Paragraph("<b>Receipts (+)</b>", styles['th']),
             Paragraph("<b>Issues (-)</b>", styles['th']),
-            Paragraph("<b>Adj (±)</b>", styles['th']),
+            Paragraph("<b>Adj (+/-)</b>", styles['th']),
             Paragraph("<b>Closing Stock</b>", styles['th']),
             Paragraph("<b>Unit Rate</b>", styles['th']),
             Paragraph("<b>Stock Valuation</b>", styles['th']),
@@ -435,7 +435,7 @@ def build_stock_summary_pdf(summary_rows: list, period_str: str = "All Time") ->
     total_val = Decimal('0.00')
     for r in summary_rows:
         total_val += r['valuation']
-        status_text = "⚠️ LOW" if r['is_low_stock'] else "OK"
+        status_text = "LOW" if r['is_low_stock'] else "OK"
         table_data.append([
             Paragraph(r['type_name'], styles['td_left']),
             Paragraph(f"<b>{r['name']}</b> ({r['code']})", styles['td_left']),
@@ -516,7 +516,7 @@ def build_production_variance_pdf(data: dict, period_str: str = "All Time") -> B
 
     for rd in data['runs_data']:
         run = rd['run']
-        flag_label = rd.get('flag_label', "⚠️ FLAG" if rd['has_variance_flag'] else "Normal")
+        flag_label = rd.get('flag_label', "FLAGGED" if rd['has_variance_flag'] else "Normal")
         flag_color = '#b91c1c' if rd['has_variance_flag'] else '#15803d'
         flag_style = ParagraphStyle('flag', parent=styles['td_left'], textColor=colors.HexColor(flag_color), fontName='Helvetica-Bold' if rd['has_variance_flag'] else 'Helvetica')
         run_table_data.append([
@@ -570,7 +570,7 @@ def build_production_variance_pdf(data: dict, period_str: str = "All Time") -> B
             continue
 
         elements.append(Paragraph(
-            f"<b>Material Consumption — {run.run_number} ({run.product.name})</b>",
+            f"<b>Material Consumption - {run.run_number} ({run.product.name})</b>",
             ParagraphStyle('mc_title', parent=styles['subtitle'],
                            textColor=colors.HexColor('#0369a1'), spaceBefore=6, spaceAfter=3)
         ))
@@ -593,13 +593,13 @@ def build_production_variance_pdf(data: dict, period_str: str = "All Time") -> B
             var_pct_str = f"+{var_pct:.2f}%" if var_pct > 0 else f"{var_pct:.2f}%"
             if mc['is_flagged']:
                 if var_qty > 0:
-                    alert_str = "⚠️ OVER"
+                    alert_str = "OVER"
                     alert_color = colors.HexColor('#b91c1c')   # red
                 else:
-                    alert_str = "⚠️ UNDER"
+                    alert_str = "UNDER"
                     alert_color = colors.HexColor('#92400e')   # amber
             else:
-                alert_str = "—"
+                alert_str = "-"
                 alert_color = colors.HexColor('#64748b')
             alert_style = ParagraphStyle(
                 'alert_cell',

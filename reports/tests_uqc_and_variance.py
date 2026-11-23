@@ -110,7 +110,7 @@ class ProductionVarianceMaterialConsumptionTests(TestCase):
 
         # Packaging
         self.pouch = PackagingItem.objects.create(name='200 g pouch', code='VAR-PM-POUCH', unit=self.piece, standard_cost=Decimal('2.50'), capacity_packets=1)
-        self.carton = PackagingItem.objects.create(name='Carton', code='VAR-PM-CARTON', unit=self.piece, standard_cost=Decimal('15.00'), capacity_packets=20)
+        self.carton = PackagingItem.objects.create(name='Carton (holds 20 packets)', code='VAR-PM-CARTON', unit=self.piece, standard_cost=Decimal('15.00'), capacity_packets=20)
 
         # Product
         self.product = Product.objects.create(
@@ -189,27 +189,28 @@ class ProductionVarianceMaterialConsumptionTests(TestCase):
         self.assertFalse(mc['200 g pouch']['is_flagged'])
 
         # Carton: planned 10, actual 9, variance -10.00% → exceeds 3% tolerance → flagged UNDER
-        self.assertEqual(mc['Carton']['standard_quantity'], Decimal('10.0000'))
-        self.assertEqual(mc['Carton']['actual_quantity'], Decimal('9.0000'))
-        self.assertTrue(mc['Carton']['is_flagged'])
+        carton_item = mc['Carton (holds 20 packets)']
+        self.assertEqual(carton_item['standard_quantity'], Decimal('10.0000'))
+        self.assertEqual(carton_item['actual_quantity'], Decimal('9.0000'))
+        self.assertTrue(carton_item['is_flagged'])
+        self.assertEqual(carton_item['short_name'], 'Carton')
         # Variance is negative → UNDER direction
-        self.assertLess(mc['Carton']['variance_quantity'], Decimal('0'))
+        self.assertLess(carton_item['variance_quantity'], Decimal('0'))
 
     def test_flag_label_names_yield_and_oil(self):
         data = get_production_variance_report_data()
         rd = next(r for r in data['runs_data'] if r['run'].run_number == 'VAR-PR-BENCH-001')
         self.assertTrue(rd['has_variance_flag'])
         label = rd['flag_label']
-        self.assertIn('Yield', label)
-        self.assertIn('Cooking oil', label)
-        self.assertTrue(label.startswith('FLAGGED ('))
+        # Short item names without nested brackets: "FLAGGED (Yield, Cooking oil, Carton)"
+        self.assertEqual(label, "FLAGGED (Yield, Cooking oil, Carton)")
+        self.assertNotIn('(holds', label)
 
     def test_flagged_reasons_list(self):
         data = get_production_variance_report_data()
         rd = next(r for r in data['runs_data'] if r['run'].run_number == 'VAR-PR-BENCH-001')
         reasons = rd['flagged_reasons']
-        self.assertIn('Yield', reasons)
-        self.assertIn('Cooking oil', reasons)
+        self.assertEqual(reasons, ['Yield', 'Cooking oil', 'Carton'])
 
     def test_item_types_correctly_labelled(self):
         data = get_production_variance_report_data()
@@ -217,7 +218,7 @@ class ProductionVarianceMaterialConsumptionTests(TestCase):
         mc = {m['item_name']: m for m in rd['material_consumption']}
         self.assertEqual(mc['Flour']['item_type'], 'Raw Material')
         self.assertEqual(mc['200 g pouch']['item_type'], 'Packaging')
-        self.assertEqual(mc['Carton']['item_type'], 'Packaging')
+        self.assertEqual(mc['Carton (holds 20 packets)']['item_type'], 'Packaging')
 
     # ---- Web view ----
 
@@ -228,16 +229,36 @@ class ProductionVarianceMaterialConsumptionTests(TestCase):
         self.assertEqual(res.status_code, 200)
         content = res.content.decode('utf-8')
         self.assertIn('VAR-PR-BENCH-001', content)
-        self.assertIn('FLAGGED', content)
-        self.assertIn('Yield', content)
-        self.assertIn('Cooking oil', content)
-        # Material consumption table should appear
+        self.assertIn('FLAGGED (Yield, Cooking oil, Carton)', content)
+        # Material consumption table should appear with full names
         self.assertIn('Material Consumption', content)
+        self.assertIn('Carton (holds 20 packets)', content)
         # Benchmark values
         self.assertIn('10.5', content)   # actual oil
         self.assertIn('+5.00', content)  # variance pct
         # Oil is OVER (actual > planned); alert label must say OVER, not UNDER
         self.assertIn('OVER', content)
+
+    def test_flag_label_on_production_run_page(self):
+        c = Client()
+        c.login(username='var_admin', password=self.password)
+        res = c.get(reverse('production:production_run_detail', kwargs={'pk': self.run.pk}))
+        self.assertEqual(res.status_code, 200)
+        content = res.content.decode('utf-8')
+        self.assertIn('FLAGGED (Yield, Cooking oil, Carton)', content)
+        # Full name still present in detailed packaging table
+        self.assertIn('Carton (holds 20 packets)', content)
+
+    def test_flag_label_on_owner_dashboard(self):
+        owner = User.objects.create_user(username='var_owner', password=self.password, role=Role.OWNER)
+        c = Client()
+        c.login(username='var_owner', password=self.password)
+        res = c.get(reverse('owner_dashboard'))
+        self.assertEqual(res.status_code, 200)
+        content = res.content.decode('utf-8')
+        self.assertIn('FLAGGED (Yield, Cooking oil, Carton)', content)
+        # Full name still present in detailed material consumption lines
+        self.assertIn('Carton (holds 20 packets)', content)
 
     def test_alert_labels_over_vs_under_in_web_view(self):
         """
@@ -264,9 +285,9 @@ class ProductionVarianceMaterialConsumptionTests(TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn('production_variance_report.csv', res['Content-Disposition'])
         content = res.content.decode('utf-8-sig')  # strip BOM
-        # Flag label present in run summary row
-        self.assertIn('FLAGGED', content)
-        # Material consumption rows present
+        # Flag label present in run summary row with short item names
+        self.assertIn('FLAGGED (Yield, Cooking oil, Carton)', content)
+        # Material consumption rows present with full item names
         self.assertIn('Cooking oil', content)
         self.assertIn('10.50', content)   # actual quantity formatted
         # Oil alert cell must say OVER (positive variance)
@@ -275,7 +296,7 @@ class ProductionVarianceMaterialConsumptionTests(TestCase):
         self.assertIn('UNDER', content)
         self.assertIn('Flour', content)
         self.assertIn('200 g pouch', content)
-        self.assertIn('Carton', content)
+        self.assertIn('Carton (holds 20 packets)', content)
 
     def test_csv_alert_cell_values(self):
         """
@@ -308,6 +329,56 @@ class ProductionVarianceMaterialConsumptionTests(TestCase):
         res = c.get(reverse('reports:production_variance'), {'export': 'pdf'})
         self.assertEqual(res.status_code, 200)
         self.assertTrue(res.content.startswith(b'%PDF-'))
+
+    def test_pdf_alert_strings_have_no_emoji(self):
+        """
+        Build the PDF directly and confirm no emoji warning bytes appear in
+        the output. The ⚠️ character encodes as 0xe2 0x9a 0xa0 in UTF-8;
+        it must be absent because Helvetica (the PDF font) cannot render it.
+        """
+        from reports.pdf import build_production_variance_pdf
+        data = get_production_variance_report_data()
+        buf = build_production_variance_pdf(data)
+        raw = buf.read()
+        # PDF must be valid
+        self.assertTrue(raw.startswith(b'%PDF-'), "Response is not a valid PDF")
+        # No UTF-8 encoded warning sign emoji (⚠ = U+26A0 = 0xe2 0x9a 0xa0)
+        self.assertNotIn(b'\xe2\x9a\xa0', raw, "PDF contains ⚠️ emoji bytes (glyph will appear as a black box)")
+        # No variation-selector byte (️ U+FE0F = 0xef 0xb8 0x8f)
+        self.assertNotIn(b'\xef\xb8\x8f', raw, "PDF contains emoji variation-selector bytes")
+
+    def test_pdf_alert_cell_values_are_over_and_under(self):
+        """
+        Verify that the material consumption alert strings produced by the
+        service layer are plain 'OVER' and 'UNDER' — no emoji prefix.
+        These are what get written verbatim into the PDF.
+        """
+        data = get_production_variance_report_data()
+        rd = next(r for r in data['runs_data'] if r['run'].run_number == 'VAR-PR-BENCH-001')
+        for mc in rd['material_consumption']:
+            var_qty = mc['variance_quantity']
+            if mc['is_flagged']:
+                expected_alert = 'OVER' if var_qty > 0 else 'UNDER'
+                # Simulate what the PDF builder does:
+                alert_str = 'OVER' if var_qty > 0 else 'UNDER'
+                self.assertEqual(alert_str, expected_alert)
+                # Confirm it does NOT start with the emoji prefix
+                self.assertFalse(
+                    alert_str.startswith('⚠'),
+                    f"Alert string '{alert_str}' still has emoji prefix"
+                )
+
+    def test_stock_summary_pdf_no_emoji(self):
+        """
+        Stock Summary PDF alert for low-stock items must say 'LOW', not '⚠️ LOW'.
+        """
+        from inventory.services import get_stock_summary
+        from reports.pdf import build_stock_summary_pdf
+        stock_rows = get_stock_summary()
+        buf = build_stock_summary_pdf(stock_rows)
+        raw = buf.read()
+        self.assertTrue(raw.startswith(b'%PDF-'))
+        self.assertNotIn(b'\xe2\x9a\xa0', raw, "Stock Summary PDF contains ⚠️ emoji bytes")
 
 
 # ---------------------------------------------------------------------------

@@ -287,6 +287,11 @@
         <nav id="navMenu" class="nav-menu">
             {% if user.is_authenticated %}
                 <div class="nav-links">
+                    {% if user.role == 'owner' %}
+                        <a href="{% url 'owner_dashboard' %}" class="nav-link" title="Owner Executive Dashboard">
+                            👑 Dashboard
+                        </a>
+                    {% endif %}
                     {% if user.role != 'salesman' %}
                         <a href="{% url 'inventory:stock_summary' %}" class="nav-link" title="Inventory Stock Summary">
                             📊 Stock

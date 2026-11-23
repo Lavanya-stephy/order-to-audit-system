@@ -519,6 +519,12 @@ def get_ageing_report(as_of_date: date = None) -> dict:
 
     customers = sorted(customer_map.values(), key=lambda x: x['total_outstanding'], reverse=True)
     summary['customer_count'] = len(customers)
+    # Expose both canonical naming and bucket_* aliases so all templates/exporters/reports match
+    summary['total_outstanding'] = summary['total_receivables']
+    summary['bucket_0_30'] = summary['total_0_30']
+    summary['bucket_31_60'] = summary['total_31_60']
+    summary['bucket_61_90'] = summary['total_61_90']
+    summary['bucket_90_plus'] = summary['total_90_plus']
 
     return {
         'as_of_date': as_of_date,

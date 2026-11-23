@@ -144,6 +144,47 @@ class Section46ReportsTests(TestCase):
         res = c.get(reverse('reports:hub'))
         self.assertEqual(res.status_code, 403)
 
+    def test_reports_hub_receivables_ageing_card_amounts(self):
+        """
+        Verify that the 'Customer Receivables & Ageing' card on the Reports Hub:
+        1. Correctly outputs non-empty amounts for total receivables outstanding and all four buckets.
+        2. Shows total outstanding of ₹3,875.00 (from Retailer A: 7,875 − 4,000 paid).
+        3. Shows all four buckets as of today: 0-30d: ₹3,875.00, 31-60d: ₹0.00, 61-90d: ₹0.00, 90+d: ₹0.00.
+        4. Matches the total displayed on the full Ageing Report page.
+        """
+        c = Client()
+        c.login(username='rep_accountant', password=self.password)
+
+        # 1. Load Reports Hub
+        res_hub = c.get(reverse('reports:hub'))
+        self.assertEqual(res_hub.status_code, 200)
+
+        # Verify context variables
+        summary = res_hub.context['ageing_summary']
+        self.assertEqual(summary['total_outstanding'], Decimal('3875.00'))
+        self.assertEqual(summary['total_receivables'], Decimal('3875.00'))
+        self.assertEqual(summary['bucket_0_30'], Decimal('3875.00'))
+        self.assertEqual(summary['bucket_31_60'], Decimal('0.00'))
+        self.assertEqual(summary['bucket_61_90'], Decimal('0.00'))
+        self.assertEqual(summary['bucket_90_plus'], Decimal('0.00'))
+
+        # Verify rendered HTML content on Reports Hub
+        content_hub = res_hub.content.decode('utf-8')
+        self.assertIn('Total Receivables Outstanding', content_hub)
+        self.assertIn('₹3875.00', content_hub)
+        self.assertIn('0-30d: ₹3875.00', content_hub)
+        self.assertIn('31-60d: ₹0.00', content_hub)
+        self.assertIn('61-90d: ₹0.00', content_hub)
+        self.assertIn('90+d: ₹0.00', content_hub)
+
+        # 2. Load Ageing Report page and verify match
+        res_ageing = c.get(reverse('reports:receivables_ageing'))
+        self.assertEqual(res_ageing.status_code, 200)
+        content_ageing = res_ageing.content.decode('utf-8')
+        # Total outstanding on ageing page must match
+        self.assertIn('₹3875.00', content_ageing)
+        self.assertEqual(res_ageing.context['summary']['total_outstanding'], summary['total_outstanding'])
+
     # -------------------------------------------------------------------------
     # 2. Sales Register & Exports
     # -------------------------------------------------------------------------
