@@ -1,0 +1,261 @@
+{% extends 'base.html' %}
+{% block title %}Section 4.6 Reports for Accounts & Audit — Order-to-Audit{% endblock %}
+
+{% block extra_head %}
+<style>
+    .rep-card {
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .rep-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+    .rep-card h3 {
+        font-size: 1.05rem;
+        margin-bottom: 0.35rem;
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .rep-card p {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        line-height: 1.45;
+        margin-bottom: 1rem;
+        flex: 1;
+    }
+    .btn-group-rep {
+        display: flex;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+    }
+    .btn-rep {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.38rem 0.75rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border-radius: 5px;
+        text-decoration: none;
+        transition: background 0.15s;
+    }
+    .btn-view {
+        background: var(--primary);
+        color: #ffffff;
+    }
+    .btn-view:hover { background: #1d4ed8; }
+    .btn-csv {
+        background: #f1f5f9;
+        color: #334155;
+        border: 1px solid #cbd5e1;
+    }
+    .btn-csv:hover { background: #e2e8f0; }
+    .btn-pdf {
+        background: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
+    }
+    .btn-pdf:hover { background: #fecaca; }
+    .kpi-stat-box {
+        background: #f8fafc;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+    .kpi-stat-label {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: var(--text-muted);
+    }
+    .kpi-stat-value {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: var(--text-dark);
+    }
+    .filter-bar {
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.9rem 1.25rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.8rem;
+        align-items: center;
+        justify-content: space-between;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom:1.25rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div>
+            <h2 style="font-size:1.35rem; margin:0;">📑 Section 4.6 Reports for Accounts &amp; Audit</h2>
+            <p style="color:var(--text-muted); font-size:0.875rem; margin-top:0.25rem;">
+                Official financial registers, outward supply GST summaries, inventory stock ledgers, and auditor packs.
+            </p>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+            {% if is_accountant %}
+                <span class="badge badge-read-only">🔒 Read-Only Auditor Access</span>
+            {% endif %}
+            <span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;">
+                Demo Snacks Pvt Ltd &bull; TN (33)
+            </span>
+        </div>
+    </div>
+</div>
+
+<form method="get" class="filter-bar">
+    <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+        <span style="font-size:0.85rem; font-weight:700; color:var(--text-dark);">Period:</span>
+        <a href="?preset=this_month" class="btn-rep {% if preset == 'this_month' %}btn-view{% else %}btn-csv{% endif %}">This Month</a>
+        <a href="?preset=last_month" class="btn-rep {% if preset == 'last_month' %}btn-view{% else %}btn-csv{% endif %}">Last Month</a>
+        <a href="?" class="btn-rep {% if not preset and not start_date and not end_date %}btn-view{% else %}btn-csv{% endif %}">All Time</a>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+        <label for="start_date" style="font-size:0.8rem; font-weight:600; color:var(--text-muted);">From:</label>
+        <input type="date" id="start_date" name="start_date" value="{{ start_date }}" style="padding:0.35rem 0.5rem; border:1px solid var(--border); border-radius:4px; font-size:0.8rem;">
+        
+        <label for="end_date" style="font-size:0.8rem; font-weight:600; color:var(--text-muted);">To:</label>
+        <input type="date" id="end_date" name="end_date" value="{{ end_date }}" style="padding:0.35rem 0.5rem; border:1px solid var(--border); border-radius:4px; font-size:0.8rem;">
+        
+        <button type="submit" class="btn-rep btn-view" style="border:none; cursor:pointer;">Filter</button>
+    </div>
+</form>
+
+<div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:1.25rem;">
+    <!-- 1. Sales Register -->
+    <div class="rep-card">
+        <div>
+            <h3>📊 Sales Register &amp; Customer/Product Sales</h3>
+            <p>Itemized sales invoices, customer sales summaries, and product revenue with CGST, SGST, IGST breakdown.</p>
+            <div class="kpi-stat-box">
+                <div class="kpi-stat-label">Total Invoiced ({{ period_label }})</div>
+                <div class="kpi-stat-value">₹{{ sales_totals.grand_total }}</div>
+                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.2rem;">
+                    Taxable: ₹{{ sales_totals.taxable_value }} &bull; Tax: ₹{{ sales_totals.total_tax }} ({{ sales_totals.count }} Invoices)
+                </div>
+            </div>
+        </div>
+        <div class="btn-group-rep">
+            <a href="{% url 'reports:sales_register' %}?start_date={{ start_date }}&end_date={{ end_date }}" class="btn-rep btn-view">View Table &rarr;</a>
+            <a href="{% url 'reports:sales_register' %}?export=csv&start_date={{ start_date }}&end_date={{ end_date }}" class="btn-rep btn-csv">📥 CSV/Excel</a>
+            <a href="{% url 'reports:sales_register' %}?export=pdf&start_date={{ start_date }}&end_date={{ end_date }}" class="btn-rep btn-pdf">📄 PDF</a>
+        </div>
+    </div>
+
+    <!-- 2. GST Summary -->
+    <div class="rep-card">
+        <div>
+            <h3>🏛️ GST Summary of Outward Supplies</h3>
+            <p>Taxable supplies, Central/State/Integrated taxes mapped directly to GSTR-1 (Table 4, 12 HSN) &amp; GSTR-3B (Table 3.1).</p>
+            <div class="kpi-stat-box">
+                <div class="kpi-stat-label">GSTR-3B Outward Taxable Value</div>
+                <div class="kpi-stat-value">₹{{ gst_3_1.taxable_value }}</div>
+                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.2rem;">
+                    CGST: ₹{{ gst_3_1.cgst }} &bull; SGST: ₹{{ gst_3_1.sgst }} &bull; IGST: ₹{{ gst_3_1.igst }}
+                </div>
+            </div>
+        </div>
+        <div class="btn-group-rep">
+            <a href="{% url 'reports:gst_summary' %}?start_date={{ start_date }}&end_date={{ end_date }}" class="btn-rep btn-view">View Table &rarr;</a>
+            <a href="{% url 'reports:gst_summary' %}?export=csv&start_date={{ start_date }}&end_date={{ end_date }}" class="btn-rep btn-csv">📥 CSV/Excel</a>
+            <a href="{% url 'reports:gst_summary' %}?export=pdf&start_date={{ start_date }}&end_date={{ end_date }}" class="btn-rep btn-pdf">📄 PDF</a>
+        </div>
+    </div>
+
+    <!-- 3. Purchase Register -->
+    <div class="rep-card">
+        <div>
+            <h3>🛒 Purchase Register</h3>
+            <p>Goods received notes (GRN), raw-material and packaging inward shipments, supplier invoice values, and status.</p>
+            <div class="kpi-stat-box">
+                <div class="kpi-stat-label">Total Purchases Received</div>
+                <div class="kpi-stat-value">₹{{ purchases_totals.grand_total }}</div>
+                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.2rem;">
+                    Raw Materials: ₹{{ purchases_totals.rm_total }} &bull; Packaging: ₹{{ purchases_totals.pm_total }}
+                </div>
+            </div>
+        </div>
+        <div class="btn-group-rep">
+            <a href="{% url 'reports:purchase_register' %}?start_date={{ start_date }}&end_date={{ end_date }}" class="btn-rep btn-view">View Table &rarr;</a>
+            <a href="{% url 'reports:purchase_register' %}?export=csv&start_date={{ start_date }}&end_date={{ end_date }}" class="btn-rep btn-csv">📥 CSV/Excel</a>
+            <a href="{% url 'reports:purchase_register' %}?export=pdf&start_date={{ start_date }}&end_date={{ end_date }}" class="btn-rep btn-pdf">📄 PDF</a>
+        </div>
+    </div>
+
+    <!-- 4. Stock Summary & Ledger -->
+    <div class="rep-card">
+        <div>
+            <h3>📦 Stock Summary &amp; Stock Ledger</h3>
+            <p>Append-only inventory movement ledger for raw, packaging, and finished goods: Opening + Receipts − Issues = Closing.</p>
+            <div class="kpi-stat-box">
+                <div class="kpi-stat-label">Active Stock Ledger Items</div>
+                <div class="kpi-stat-value">6 Tracked Items</div>
+                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.2rem;">
+                    Immutable ledger &bull; Audit adjustments with source document references
+                </div>
+            </div>
+        </div>
+        <div class="btn-group-rep">
+            <a href="{% url 'reports:stock_report' %}?start_date={{ start_date }}&end_date={{ end_date }}" class="btn-rep btn-view">View Table &rarr;</a>
+            <a href="{% url 'reports:stock_report' %}?export=csv&start_date={{ start_date }}&end_date={{ end_date }}" class="btn-rep btn-csv">📥 CSV/Excel</a>
+            <a href="{% url 'reports:stock_report' %}?export=pdf&start_date={{ start_date }}&end_date={{ end_date }}" class="btn-rep btn-pdf">📄 PDF</a>
+            <a href="{% url 'inventory:stock_ledger' %}" class="btn-rep btn-csv">📜 Item Ledger</a>
+        </div>
+    </div>
+
+    <!-- 5. Production Report & Variance -->
+    <div class="rep-card">
+        <div>
+            <h3>📉 Production Variance &amp; Wastage</h3>
+            <p>Batch recipe requirements vs actual consumption, output yield, damaged packaging absorption, and cost per packet.</p>
+            <div class="kpi-stat-box">
+                <div class="kpi-stat-label">Batches Produced ({{ production_totals.runs_count }} runs)</div>
+                <div class="kpi-stat-value">{{ production_totals.total_actual_pkts }} Packets</div>
+                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.2rem;">
+                    Efficiency: {{ production_totals.overall_yield_pct }}% &bull; Damaged Pouches: {{ production_totals.total_damaged_pouches }} pcs
+                </div>
+            </div>
+        </div>
+        <div class="btn-group-rep">
+            <a href="{% url 'reports:production_variance' %}?start_date={{ start_date }}&end_date={{ end_date }}" class="btn-rep btn-view">View Table &rarr;</a>
+            <a href="{% url 'reports:production_variance' %}?export=csv&start_date={{ start_date }}&end_date={{ end_date }}" class="btn-rep btn-csv">📥 CSV/Excel</a>
+            <a href="{% url 'reports:production_variance' %}?export=pdf&start_date={{ start_date }}&end_date={{ end_date }}" class="btn-rep btn-pdf">📄 PDF</a>
+        </div>
+    </div>
+
+    <!-- 6. Payments, Collections & Ageing -->
+    <div class="rep-card">
+        <div>
+            <h3>⏳ Customer Receivables &amp; Ageing</h3>
+            <p>Collections against invoices, current customer dues, and accounts receivable categorized into 0-30, 31-60, 61-90, 90+ day buckets.</p>
+            <div class="kpi-stat-box">
+                <div class="kpi-stat-label">Total Receivables Outstanding</div>
+                <div class="kpi-stat-value">₹{{ ageing_summary.total_outstanding }}</div>
+                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.2rem;">
+                    0-30d: ₹{{ ageing_summary.bucket_0_30 }} &bull; 31-60d: ₹{{ ageing_summary.bucket_31_60 }} &bull; 90+d: ₹{{ ageing_summary.bucket_90_plus }}
+                </div>
+            </div>
+        </div>
+        <div class="btn-group-rep">
+            <a href="{% url 'reports:receivables_ageing' %}" class="btn-rep btn-view">View Table &rarr;</a>
+            <a href="{% url 'reports:receivables_ageing' %}?export=csv" class="btn-rep btn-csv">📥 CSV/Excel</a>
+            <a href="{% url 'reports:receivables_ageing' %}?export=pdf" class="btn-rep btn-pdf">📄 PDF</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

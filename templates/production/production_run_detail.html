@@ -127,9 +127,15 @@
                 <td style="padding:0.65rem 0.8rem; text-align:right;">
                     {% if item.actual_quantity > 0 %}
                         {% if item.is_variance_flagged %}
-                            <span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700;">
-                                ⚠️ +{{ item.consumption_variance_pct }}%
-                            </span>
+                            {% if item.consumption_variance_pct > 0 %}
+                                <span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700;">
+                                    ⚠️ OVER +{{ item.consumption_variance_pct }}%
+                                </span>
+                            {% else %}
+                                <span class="badge" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-weight:700;">
+                                    ⚠️ UNDER {{ item.consumption_variance_pct }}%
+                                </span>
+                            {% endif %}
                         {% else %}
                             <span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #e2e8f0;">
                                 {{ item.consumption_variance_pct }}%

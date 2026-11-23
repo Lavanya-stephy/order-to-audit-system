@@ -154,3 +154,8 @@ To switch from SQLite to PostgreSQL in Docker:
 Detailed system architecture, design decisions, and build plan are documented in:
 - [NOTES.md](file:///d:/NIT-PROJRCT/NOTES.md) — Comprehensive technical notes, data model design, and step-by-step build order.
 - [PROBLEM.md](file:///d:/NIT-PROJRCT/PROBLEM.md) — Original internship problem statement specification.
+
+## Benchmark notes and differences
+
+- **Cartons:** the run used 9 cartons against 10 in the BOM (-10%). This is flagged because it exceeds the 3% tolerance. The benchmark only lists yield (-6%) and oil (+5%) as flagged, so this is an extra flag, and it is expected.
+- **Pouches:** 194 used against 200 (-3%) is exactly at the tolerance and is not flagged, because the rule flags variance beyond 3%.

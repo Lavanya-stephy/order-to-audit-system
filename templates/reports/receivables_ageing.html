@@ -1,0 +1,262 @@
+{% extends 'base.html' %}
+{% block title %}Accounts Receivable Ageing &amp; Collections — Order-to-Audit{% endblock %}
+
+{% block extra_head %}
+<style>
+    .filter-bar {
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.9rem 1.25rem;
+        margin-bottom: 1.25rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.8rem;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .rep-tabs {
+        display: flex;
+        gap: 0.5rem;
+        border-bottom: 2px solid var(--border);
+        margin-bottom: 1.25rem;
+    }
+    .rep-tab {
+        padding: 0.55rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-decoration: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+    }
+    .rep-tab.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+        background: rgba(30, 58, 138, 0.04);
+        border-radius: 4px 4px 0 0;
+    }
+    .report-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }
+    .report-table th {
+        background: #f8fafc;
+        border-bottom: 2px solid var(--border);
+        padding: 0.65rem 0.75rem;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        font-weight: 700;
+        text-align: left;
+    }
+    .report-table td {
+        padding: 0.65rem 0.75rem;
+        border-bottom: 1px solid var(--border);
+    }
+    .report-table tr:hover td {
+        background: #f8fafc;
+    }
+    .num { text-align: right; }
+    .kpi-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+    }
+    .kpi-box {
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.85rem 1rem;
+    }
+    .btn-exp {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.38rem 0.75rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border-radius: 4px;
+        text-decoration: none;
+        border: 1px solid #cbd5e1;
+        background: #f1f5f9;
+        color: #334155;
+    }
+    .btn-exp:hover { background: #e2e8f0; }
+    .btn-exp-pdf {
+        background: #fee2e2;
+        color: #b91c1c;
+        border-color: #fca5a5;
+    }
+    .btn-exp-pdf:hover { background: #fecaca; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem;">
+    <div>
+        <h2 style="font-size:1.35rem; margin:0;">⏳ Accounts Receivable Ageing &amp; Collections</h2>
+        <p style="color:var(--text-muted); font-size:0.875rem; margin-top:0.2rem;">
+            Customer outstanding balances &bull; As of: <strong>{{ as_of_date|date:"d M Y" }}</strong>
+        </p>
+    </div>
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <a href="?tab={{ tab }}&export=csv&as_of_date={{ as_of_date|date:'Y-m-d' }}" class="btn-exp">
+            📥 Export CSV/Excel
+        </a>
+        <a href="?export=pdf&as_of_date={{ as_of_date|date:'Y-m-d' }}" class="btn-exp btn-exp-pdf">
+            📄 Export PDF
+        </a>
+        <a href="{% url 'reports:hub' %}" class="btn-exp">
+            &larr; Reports Hub
+        </a>
+    </div>
+</div>
+
+<form method="get" class="filter-bar">
+    <input type="hidden" name="tab" value="{{ tab }}">
+    <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+        <label style="font-size:0.8rem; font-weight:600; color:var(--text-muted);">As of Date:</label>
+        <input type="date" name="as_of_date" value="{{ as_of_date|date:'Y-m-d' }}" style="padding:0.35rem 0.5rem; border:1px solid var(--border); border-radius:4px; font-size:0.8rem;">
+        
+        <button type="submit" style="padding:0.35rem 0.8rem; background:var(--primary); color:#fff; border:none; border-radius:4px; font-size:0.8rem; font-weight:600; cursor:pointer;">Update</button>
+    </div>
+
+    <div style="display:flex; gap:0.4rem;">
+        <a href="{% url 'invoices:payment_list' %}" class="btn-exp">💳 Record / View Payments</a>
+        <a href="{% url 'invoices:customer_balances' %}" class="btn-exp">👥 Customer Balances</a>
+    </div>
+</form>
+
+<div class="kpi-row">
+    <div class="kpi-box">
+        <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); font-weight:700;">Total Outstanding</div>
+        <div style="font-size:1.35rem; font-weight:800; color:#b91c1c;">₹{{ summary.total_outstanding }}</div>
+    </div>
+    <div class="kpi-box">
+        <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); font-weight:700;">Current (0-30 days)</div>
+        <div style="font-size:1.35rem; font-weight:800; color:#15803d;">₹{{ summary.bucket_0_30 }}</div>
+    </div>
+    <div class="kpi-box">
+        <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); font-weight:700;">31-60 days</div>
+        <div style="font-size:1.35rem; font-weight:800; color:#d97706;">₹{{ summary.bucket_31_60 }}</div>
+    </div>
+    <div class="kpi-box">
+        <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); font-weight:700;">61-90 days</div>
+        <div style="font-size:1.35rem; font-weight:800; color:#ea580c;">₹{{ summary.bucket_61_90 }}</div>
+    </div>
+    <div class="kpi-box">
+        <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); font-weight:700;">Overdue (90+ days)</div>
+        <div style="font-size:1.35rem; font-weight:800; color:#b91c1c;">₹{{ summary.bucket_90_plus }}</div>
+    </div>
+</div>
+
+<div class="rep-tabs">
+    <a href="?tab=ageing&as_of_date={{ as_of_date|date:'Y-m-d' }}" class="rep-tab {% if tab == 'ageing' %}active{% endif %}">
+        👥 Customer Ageing Buckets ({{ customers|length }})
+    </a>
+    <a href="?tab=payments&as_of_date={{ as_of_date|date:'Y-m-d' }}" class="rep-tab {% if tab == 'payments' %}active{% endif %}">
+        💳 Payments &amp; Collections History ({{ payments|length }})
+    </a>
+</div>
+
+{% if tab == 'ageing' %}
+    <div class="card" style="padding:0; overflow-x:auto;">
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>Customer Name</th>
+                    <th>Channel</th>
+                    <th class="num">Total Outstanding</th>
+                    <th class="num">0-30 Days</th>
+                    <th class="num">31-60 Days</th>
+                    <th class="num">61-90 Days</th>
+                    <th class="num">90+ Days</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in customers %}
+                <tr>
+                    <td style="font-weight:700;">{{ c.customer.name }}</td>
+                    <td>{{ c.customer.get_customer_type_display }}</td>
+                    <td class="num" style="font-weight:800; color:#b91c1c;">₹{{ c.total_outstanding }}</td>
+                    <td class="num">₹{{ c.bucket_0_30 }}</td>
+                    <td class="num">₹{{ c.bucket_31_60 }}</td>
+                    <td class="num">₹{{ c.bucket_61_90 }}</td>
+                    <td class="num">₹{{ c.bucket_90_plus }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align:center; padding:2rem; color:var(--text-muted);">
+                        No outstanding customer balances as of this date.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background:#f8fafc; font-weight:800; border-top:2px solid var(--border);">
+                    <td colspan="2">TOTAL RECEIVABLES</td>
+                    <td class="num" style="color:#b91c1c; font-size:1rem;">₹{{ summary.total_outstanding }}</td>
+                    <td class="num">₹{{ summary.bucket_0_30 }}</td>
+                    <td class="num">₹{{ summary.bucket_31_60 }}</td>
+                    <td class="num">₹{{ summary.bucket_61_90 }}</td>
+                    <td class="num">₹{{ summary.bucket_90_plus }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+{% elif tab == 'payments' %}
+    <div class="card" style="padding:0; overflow-x:auto;">
+        <table class="report-table">
+            <thead>
+                <tr>
+                    <th>Receipt No</th>
+                    <th>Payment Date</th>
+                    <th>Customer Name</th>
+                    <th>Invoice No</th>
+                    <th>Payment Mode</th>
+                    <th>Reference No</th>
+                    <th class="num">Amount Received</th>
+                    <th>Recorded By</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in payments %}
+                <tr>
+                    <td style="font-family:monospace; font-weight:700;">{{ p.payment_number }}</td>
+                    <td>{{ p.payment_date|date:"d M Y" }}</td>
+                    <td style="font-weight:600;">{{ p.customer.name }}</td>
+                    <td style="font-family:monospace;">
+                        {% if p.invoice %}
+                            <a href="{% url 'invoices:invoice_detail' p.invoice.pk %}" style="color:var(--primary); text-decoration:none;">{{ p.invoice.invoice_number }}</a>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td><span class="badge" style="background:#f1f5f9; color:#475569;">{{ p.get_payment_mode_display }}</span></td>
+                    <td style="font-family:monospace; font-size:0.8rem;">{{ p.reference_number|default:"—" }}</td>
+                    <td class="num" style="font-weight:800; color:#15803d; font-size:0.95rem;">₹{{ p.amount }}</td>
+                    <td style="color:var(--text-muted); font-size:0.8rem;">{{ p.recorded_by.username|default:"System" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align:center; padding:2rem; color:var(--text-muted);">
+                        No payment collections recorded.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="background:#f8fafc; font-weight:800; border-top:2px solid var(--border);">
+                    <td colspan="6">TOTAL COLLECTIONS RECEIVED</td>
+                    <td class="num" style="color:#15803d; font-size:1rem;">₹{{ total_received }}</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+{% endif %}
+{% endblock %}

@@ -15,6 +15,9 @@
             <span class="badge badge-read-only">
                 🔒 Read-Only Auditor Access
             </span>
+            <a href="{% url 'reports:hub' %}" style="display:inline-block; background:#1e3a8a; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                📑 All Section 4.6 Reports
+            </a>
             <a href="{% url 'inventory:stock_summary' %}" style="display:inline-block; background:#0284c7; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
                 📊 Stock Summary
             </a>
@@ -27,24 +30,36 @@
 
 <div class="grid">
     <div class="feature-card">
-        <h3>📊 Monthly Sales & GST Register</h3>
-        <p>Outward supplies summarized in GSTR-1 / GSTR-3B structure, filterable by date and exportable to CSV/Excel.</p>
+        <h3>📊 Monthly Sales &amp; GST Register</h3>
+        <p>Outward supplies summarized in GSTR-1 / GSTR-3B structure, filterable by date and exportable to CSV/Excel and PDF.</p>
+        <div style="margin-top:0.75rem; display:flex; gap:0.75rem;">
+            <a href="{% url 'reports:sales_register' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">Sales Register &rarr;</a>
+            <a href="{% url 'reports:gst_summary' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">GST Summary &rarr;</a>
+        </div>
     </div>
     <div class="feature-card">
         <h3>📦 Inventory Stock Ledger</h3>
         <p>Complete itemized movement ledger for raw, packaging, and finished goods linked to source documents.</p>
         <div style="margin-top:0.75rem; display:flex; gap:0.75rem;">
-            <a href="{% url 'inventory:stock_summary' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">Stock Summary &rarr;</a>
+            <a href="{% url 'reports:stock_report' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">Stock Summary &rarr;</a>
             <a href="{% url 'inventory:stock_ledger' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">Item Ledger &rarr;</a>
         </div>
     </div>
     <div class="feature-card">
         <h3>📉 Production Variance Report</h3>
         <p>Detailed variance analysis for raw material usage, batch yields, and packaging wastage across runs.</p>
+        <div style="margin-top:0.75rem; display:flex; gap:0.75rem;">
+            <a href="{% url 'reports:production_variance' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">Variance Report &rarr;</a>
+            <a href="{% url 'production:product_costing' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">Product Costing &rarr;</a>
+        </div>
     </div>
     <div class="feature-card">
-        <h3>⏳ Customer Receivables & Ageing</h3>
+        <h3>⏳ Customer Receivables &amp; Ageing</h3>
         <p>Outstanding balances mapped across 30, 60, and 90+ day ageing buckets with full collection history.</p>
+        <div style="margin-top:0.75rem; display:flex; gap:0.75rem;">
+            <a href="{% url 'reports:receivables_ageing' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">Ageing Report &rarr;</a>
+            <a href="{% url 'invoices:payment_list' %}" style="color:var(--primary-light); text-decoration:none; font-weight:600; font-size:0.85rem;">Collections &rarr;</a>
+        </div>
     </div>
 </div>
 {% endblock %}

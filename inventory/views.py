@@ -4,6 +4,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.core.exceptions import ObjectDoesNotExist
@@ -80,6 +81,18 @@ def stock_summary_view(request):
         end_date=end_dt
     )
 
+    export_fmt = request.GET.get('export', '').lower()
+    if export_fmt == 'csv':
+        from reports.exporters import export_stock_summary_csv
+        return export_stock_summary_csv(summary_rows)
+    elif export_fmt == 'pdf':
+        from reports.pdf import build_stock_summary_pdf
+        period_label = f"{start_str} to {end_str}" if start_str and end_str else "All Time"
+        buf = build_stock_summary_pdf(summary_rows, period_str=period_label)
+        response = HttpResponse(buf.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="stock_summary.pdf"'
+        return response
+
     total_valuation = sum((row['valuation'] for row in summary_rows), Decimal('0.00'))
     low_stock_count = sum((1 for row in summary_rows if row['is_low_stock']))
     can_adjust = request.user.role in INVENTORY_MANAGERS or request.user.is_superuser
@@ -118,6 +131,11 @@ def stock_ledger_view(request):
 
     if item_obj:
         ledger_data = get_item_ledger(item_obj, start_date=start_dt, end_date=end_dt)
+
+    export_fmt = request.GET.get('export', '').lower()
+    if export_fmt == 'csv' and item_obj and ledger_data:
+        from reports.exporters import export_stock_ledger_csv
+        return export_stock_ledger_csv(ledger_data, item_obj.name)
 
     context = {
         'all_items': all_items,

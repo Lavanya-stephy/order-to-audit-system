@@ -67,7 +67,12 @@
                 Traceable movement audit trail: every transaction links to its source document with cumulative balance.
             </p>
         </div>
-        <div style="display:flex; gap:0.5rem; align-items:center;">
+        <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+            {% if item_obj %}
+            <a href="?export=csv&item={{ selected_item_key }}&start_date={{ start_date }}&end_date={{ end_date }}" style="display:inline-block; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:0.45rem 0.8rem; border-radius:4px; font-size:0.85rem; font-weight:600; text-decoration:none;">
+                📥 Export CSV
+            </a>
+            {% endif %}
             <a href="{% url 'inventory:stock_summary' %}" style="display:inline-block; background:#e2e8f0; color:#334155; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
                 &larr; Stock Summary
             </a>

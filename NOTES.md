@@ -215,3 +215,46 @@ Following Section 6 of `PROBLEM.md`, development will be executed in staged phas
 - **Fungible Bulk Ingredients:** In snack food manufacturing, bulk staples like flour, oil, and spices are stored in shared bins and tanks. Tracking individual bags or lots (FIFO/LIFO lot tracking) is practically impossible on a small factory floor where raw materials mix seamlessly.
 - **Price Smoothing:** Commodity ingredient prices fluctuate constantly. Moving weighted average naturally blends opening inventory and recent purchase prices, preventing artificial margin spikes between consecutive batches.
 - **Accounting & Audit Standards:** Weighted average cost (WAC) is recognized under Indian Accounting Standards (Ind AS 2 / AS 2) and tax guidelines as an accurate, compliant method for inventory valuation and Cost of Goods Sold (COGS).
+
+---
+
+## 7. Section 4.6 Reports for Accounts & Audit
+
+The reporting suite provides complete monthly auditor packs, filterable by date range and exportable to CSV/Excel and PDF:
+
+1. **Sales Register & Outward Invoices (`/reports/sales-register/`):**
+   - Detailed invoice register with Place of Supply, Taxable Value, CGST, SGST, IGST, Invoice Total, and Outstanding Balances.
+   - Customer-wise aggregated sales breakdown.
+   - Product-wise sales volume, average selling rate, and revenue breakdown.
+   - Export to CSV/Excel and PDF.
+
+2. **GST Summary of Outward Supplies (`/reports/gst-summary/`):**
+   - **GSTR-3B Table 3.1 & 3.2:** Outward taxable supplies by tax category (Central, State, Integrated, Cess).
+   - **GSTR-1 Table 4:** Registered B2B supplies with recipient GSTIN, invoice details, and tax breakdowns.
+   - **GSTR-1 Table 12:** HSN-wise summary of outward supplies (HSN 19059040, UQC, quantities, values, taxes).
+   - Export to CSV/Excel and PDF.
+
+3. **Purchase Register (`/reports/purchases/`):**
+   - Goods received notes (GRN) and purchase orders for raw materials and packaging.
+   - Supplier breakdown with item codes, received quantities, unit rates, and line totals.
+   - Export to CSV/Excel and PDF.
+
+4. **Stock Summary & Stock Ledger (`/reports/stock/`, `/inventory/summary/`, `/inventory/ledger/`):**
+   - Derived balance formula: $\text{Opening} + \text{Inward} - \text{Outward} \pm \text{Adjustments} = \text{Closing}$.
+   - Category filtering (Raw Materials, Packaging, Finished Goods) with standard valuation.
+   - Traceable item ledger with running balance and source document links.
+   - Export to CSV/Excel and PDF.
+
+5. **Production Variance & Wastage Report (`/reports/production/`):**
+   - Standard recipe requirements vs actual material consumption (variance % and flags).
+   - Output yields, damaged packaging absorbed losses, and run-level batch costing.
+   - Export to CSV/Excel and PDF.
+
+6. **Customer Receivables, Ageing & Payments (`/reports/receivables/`, `/invoices/ageing/`):**
+   - Accounts receivable ageing categorized across 0-30, 31-60, 61-90, and 90+ day buckets.
+   - Payment collections register linked to invoices and customer receipts.
+   - Export to CSV/Excel and PDF.
+
+7. **Accountant Role Permissions:**
+   - The `Accountant / Auditor` role (`Role.ACCOUNTANT`) has full read-only access to view and export all Section 4.6 reports.
+   - Accountants cannot create, update, delete, approve, cancel, or dispatch operational transactions (orders, invoices, production runs, purchases, adjustments).

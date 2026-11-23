@@ -43,14 +43,22 @@
             Outstanding receivables breakdown by payment age buckets as of <strong>{{ as_of_date|date:"d M Y" }}</strong>.
         </p>
     </div>
-    <form method="get" style="display:flex; gap:0.5rem; align-items:center;">
-        <label for="as_of_date" style="font-size:0.85rem; font-weight:600; color:var(--text-dark);">As of Date:</label>
-        <input type="date" id="as_of_date" name="as_of_date" value="{{ as_of_date|date:'Y-m-d' }}"
-               style="padding:0.4rem 0.65rem; border:1px solid var(--border); border-radius:4px; font-size:0.85rem;">
-        <button type="submit" style="background:var(--primary); color:#ffffff; border:none; padding:0.45rem 0.9rem; border-radius:4px; font-weight:600; font-size:0.85rem; cursor:pointer;">
-            Update
-        </button>
-    </form>
+    <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+        <form method="get" style="display:flex; gap:0.5rem; align-items:center;">
+            <label for="as_of_date" style="font-size:0.85rem; font-weight:600; color:var(--text-dark);">As of Date:</label>
+            <input type="date" id="as_of_date" name="as_of_date" value="{{ as_of_date|date:'Y-m-d' }}"
+                   style="padding:0.4rem 0.65rem; border:1px solid var(--border); border-radius:4px; font-size:0.85rem;">
+            <button type="submit" style="background:var(--primary); color:#ffffff; border:none; padding:0.45rem 0.9rem; border-radius:4px; font-weight:600; font-size:0.85rem; cursor:pointer;">
+                Update
+            </button>
+        </form>
+        <a href="?export=csv&as_of_date={{ as_of_date|date:'Y-m-d' }}" style="display:inline-block; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:0.45rem 0.8rem; border-radius:4px; font-size:0.85rem; font-weight:600; text-decoration:none;">
+            📥 CSV
+        </a>
+        <a href="?export=pdf&as_of_date={{ as_of_date|date:'Y-m-d' }}" style="display:inline-block; background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; padding:0.45rem 0.8rem; border-radius:4px; font-size:0.85rem; font-weight:600; text-decoration:none;">
+            📄 PDF
+        </a>
+    </div>
 </div>
 
 <!-- Navigation Pills -->

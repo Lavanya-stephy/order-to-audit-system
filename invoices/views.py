@@ -221,6 +221,11 @@ def payment_list_view(request):
 
     total_received = sum(p.amount for p in payments)
 
+    export_fmt = request.GET.get('export', '').lower()
+    if export_fmt == 'csv':
+        from reports.exporters import export_payments_csv
+        return export_payments_csv(list(payments))
+
     return render(request, 'invoices/payment_list.html', {
         'payments': payments,
         'total_received': total_received,
@@ -291,6 +296,17 @@ def ageing_report_view(request):
         as_of_date = timezone.localdate()
 
     report_data = get_ageing_report(as_of_date=as_of_date)
+
+    export_fmt = request.GET.get('export', '').lower()
+    if export_fmt == 'csv':
+        from reports.exporters import export_ageing_report_csv
+        return export_ageing_report_csv(report_data, as_of_date)
+    elif export_fmt == 'pdf':
+        from reports.pdf import build_ageing_report_pdf
+        buf = build_ageing_report_pdf(report_data, as_of_date)
+        response = HttpResponse(buf.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="ageing_report_{as_of_date}.pdf"'
+        return response
 
     return render(request, 'invoices/ageing_report.html', {
         'as_of_date': as_of_date,

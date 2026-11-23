@@ -1,0 +1,273 @@
+{% extends 'base.html' %}
+{% block title %}GST Summary (GSTR-1 &amp; GSTR-3B) — Order-to-Audit{% endblock %}
+
+{% block extra_head %}
+<style>
+    .filter-bar {
+        background: #ffffff;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.9rem 1.25rem;
+        margin-bottom: 1.25rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.8rem;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .report-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+        margin-top: 0.5rem;
+    }
+    .report-table th {
+        background: #f8fafc;
+        border-bottom: 2px solid var(--border);
+        padding: 0.65rem 0.75rem;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        font-weight: 700;
+        text-align: left;
+    }
+    .report-table td {
+        padding: 0.65rem 0.75rem;
+        border-bottom: 1px solid var(--border);
+    }
+    .report-table tr:hover td {
+        background: #f8fafc;
+    }
+    .num { text-align: right; }
+    .gst-section-header {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--primary);
+        margin: 1.5rem 0 0.5rem 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .btn-exp {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.38rem 0.75rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border-radius: 4px;
+        text-decoration: none;
+        border: 1px solid #cbd5e1;
+        background: #f1f5f9;
+        color: #334155;
+    }
+    .btn-exp:hover { background: #e2e8f0; }
+    .btn-exp-pdf {
+        background: #fee2e2;
+        color: #b91c1c;
+        border-color: #fca5a5;
+    }
+    .btn-exp-pdf:hover { background: #fecaca; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem;">
+    <div>
+        <h2 style="font-size:1.35rem; margin:0;">🏛️ GST Summary of Outward Supplies</h2>
+        <p style="color:var(--text-muted); font-size:0.875rem; margin-top:0.2rem;">
+            Prepared in exact GSTR-1 and GSTR-3B structures &bull; Period: <strong>{{ period_label }}</strong>
+        </p>
+    </div>
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <a href="?export=csv&start_date={{ start_date }}&end_date={{ end_date }}" class="btn-exp">
+            📥 Export CSV/Excel
+        </a>
+        <a href="?export=pdf&start_date={{ start_date }}&end_date={{ end_date }}" class="btn-exp btn-exp-pdf">
+            📄 Export PDF
+        </a>
+        <a href="{% url 'reports:hub' %}" class="btn-exp">
+            &larr; Reports Hub
+        </a>
+    </div>
+</div>
+
+<form method="get" class="filter-bar">
+    <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+        <label style="font-size:0.8rem; font-weight:600; color:var(--text-muted);">From:</label>
+        <input type="date" name="start_date" value="{{ start_date }}" style="padding:0.35rem 0.5rem; border:1px solid var(--border); border-radius:4px; font-size:0.8rem;">
+        
+        <label style="font-size:0.8rem; font-weight:600; color:var(--text-muted);">To:</label>
+        <input type="date" name="end_date" value="{{ end_date }}" style="padding:0.35rem 0.5rem; border:1px solid var(--border); border-radius:4px; font-size:0.8rem;">
+        
+        <button type="submit" style="padding:0.35rem 0.8rem; background:var(--primary); color:#fff; border:none; border-radius:4px; font-size:0.8rem; font-weight:600; cursor:pointer;">Filter</button>
+        <a href="?" style="font-size:0.8rem; color:var(--text-muted); text-decoration:none;">Reset</a>
+    </div>
+
+    <div style="display:flex; gap:0.4rem;">
+        <a href="?preset=this_month" style="font-size:0.8rem; padding:0.25rem 0.55rem; border:1px solid var(--border); border-radius:4px; text-decoration:none; color:var(--text-dark);">This Month</a>
+        <a href="?preset=last_month" style="font-size:0.8rem; padding:0.25rem 0.55rem; border:1px solid var(--border); border-radius:4px; text-decoration:none; color:var(--text-dark);">Last Month</a>
+    </div>
+</form>
+
+<!-- 1. GSTR-3B Table 3.1 -->
+<div class="gst-section-header">
+    <span>📑 GSTR-3B Table 3.1: Details of Outward Supplies and Inward Supplies Liable to Reverse Charge</span>
+</div>
+<div class="card" style="padding:0; overflow-x:auto;">
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>Nature of Supplies</th>
+                <th class="num">Total Taxable Value</th>
+                <th class="num">Integrated Tax (IGST)</th>
+                <th class="num">Central Tax (CGST)</th>
+                <th class="num">State/UT Tax (SGST)</th>
+                <th class="num">Cess</th>
+                <th class="num">Total Tax</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td style="font-weight:600;">(a) Outward taxable supplies (other than zero rated, nil rated and exempted)</td>
+                <td class="num" style="font-weight:700;">₹{{ data.gstr3b_3_1.taxable_value }}</td>
+                <td class="num">₹{{ data.gstr3b_3_1.igst }}</td>
+                <td class="num">₹{{ data.gstr3b_3_1.cgst }}</td>
+                <td class="num">₹{{ data.gstr3b_3_1.sgst }}</td>
+                <td class="num">₹{{ data.gstr3b_3_1.cess }}</td>
+                <td class="num" style="font-weight:800; color:#0369a1;">₹{{ data.gstr3b_3_1.total_tax }}</td>
+            </tr>
+            <tr>
+                <td>(b) Outward taxable supplies (zero rated)</td>
+                <td class="num">₹0.00</td>
+                <td class="num">₹0.00</td>
+                <td class="num">₹0.00</td>
+                <td class="num">₹0.00</td>
+                <td class="num">₹0.00</td>
+                <td class="num">₹0.00</td>
+            </tr>
+            <tr>
+                <td>(c) Other outward supplies (Nil rated, exempted)</td>
+                <td class="num">₹0.00</td>
+                <td class="num">₹0.00</td>
+                <td class="num">₹0.00</td>
+                <td class="num">₹0.00</td>
+                <td class="num">₹0.00</td>
+                <td class="num">₹0.00</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- 2. GSTR-1 Table 12 HSN Summary -->
+<div class="gst-section-header">
+    <span>📦 GSTR-1 Table 12: HSN-wise Summary of Outward Supplies</span>
+</div>
+<div class="card" style="padding:0; overflow-x:auto;">
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>HSN Code</th>
+                <th>Description</th>
+                <th>UQC</th>
+                <th class="num">Total Quantity</th>
+                <th class="num">Total Value</th>
+                <th class="num">Taxable Value</th>
+                <th class="num">Rate</th>
+                <th class="num">IGST</th>
+                <th class="num">CGST</th>
+                <th class="num">SGST</th>
+                <th class="num">Total Tax</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for h in data.hsn_summary %}
+            <tr>
+                <td style="font-family:monospace; font-weight:700;">{{ h.hsn_code }}</td>
+                <td style="font-weight:600;">{{ h.description }}</td>
+                <td><span class="badge" style="background:#f1f5f9; color:#475569;">{{ h.uqc }}</span></td>
+                <td class="num" style="font-weight:700;">{{ h.total_quantity|floatformat:0 }}</td>
+                <td class="num" style="font-weight:700;">₹{{ h.total_value }}</td>
+                <td class="num">₹{{ h.taxable_value }}</td>
+                <td class="num">5%</td>
+                <td class="num">₹{{ h.igst }}</td>
+                <td class="num">₹{{ h.cgst }}</td>
+                <td class="num">₹{{ h.sgst }}</td>
+                <td class="num" style="font-weight:800; color:#0369a1;">₹{{ h.total_tax }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="11" style="text-align:center; padding:1.5rem; color:var(--text-muted);">
+                    No outward supplies recorded in this period.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- 3. GSTR-1 Table 4: B2B Invoices -->
+<div class="gst-section-header">
+    <span>🏢 GSTR-1 Table 4: Taxable Outward Supplies to Registered Persons (B2B)</span>
+    <span style="font-size:0.85rem; color:var(--text-muted); font-weight:normal;">{{ data.b2b_invoices|length }} Invoices</span>
+</div>
+<div class="card" style="padding:0; overflow-x:auto;">
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>GSTIN of Recipient</th>
+                <th>Receiver Name</th>
+                <th>Invoice No</th>
+                <th>Invoice Date</th>
+                <th class="num">Invoice Value</th>
+                <th>Place of Supply</th>
+                <th>Reverse Charge</th>
+                <th class="num">Rate</th>
+                <th class="num">Taxable Value</th>
+                <th class="num">IGST</th>
+                <th class="num">CGST</th>
+                <th class="num">SGST</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inv in data.b2b_invoices %}
+            <tr>
+                <td style="font-family:monospace; font-weight:700;">{{ inv.customer.gstin }}</td>
+                <td style="font-weight:600;">{{ inv.customer.name }}</td>
+                <td style="font-family:monospace;">
+                    <a href="{% url 'invoices:invoice_detail' inv.pk %}" style="color:var(--primary); text-decoration:none;">{{ inv.invoice_number }}</a>
+                </td>
+                <td>{{ inv.invoice_date|date:"d-M-Y" }}</td>
+                <td class="num" style="font-weight:700;">₹{{ inv.grand_total }}</td>
+                <td>{{ inv.customer.state }} ({{ inv.customer.state_code }})</td>
+                <td>N</td>
+                <td class="num">5%</td>
+                <td class="num">₹{{ inv.taxable_value }}</td>
+                <td class="num">₹{{ inv.igst_amount }}</td>
+                <td class="num">₹{{ inv.cgst_amount }}</td>
+                <td class="num">₹{{ inv.sgst_amount }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="12" style="text-align:center; padding:1.5rem; color:var(--text-muted);">
+                    No B2B registered outward supplies recorded in this period.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        {% if data.b2b_invoices %}
+        <tfoot>
+            <tr style="background:#f8fafc; font-weight:800;">
+                <td colspan="4">TOTAL B2B SUPPLIES ({{ data.b2b_totals.count }})</td>
+                <td class="num">₹{{ data.b2b_totals.grand_total }}</td>
+                <td colspan="3"></td>
+                <td class="num">₹{{ data.b2b_totals.taxable_value }}</td>
+                <td class="num">₹{{ data.b2b_totals.igst }}</td>
+                <td class="num">₹{{ data.b2b_totals.cgst }}</td>
+                <td class="num">₹{{ data.b2b_totals.sgst }}</td>
+            </tr>
+        </tfoot>
+        {% endif %}
+    </table>
+</div>
+{% endblock %}

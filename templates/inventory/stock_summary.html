@@ -74,6 +74,12 @@
             </p>
         </div>
         <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+            <a href="?export=csv&category={{ selected_category }}&start_date={{ start_date }}&end_date={{ end_date }}" style="display:inline-block; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:0.45rem 0.8rem; border-radius:4px; font-size:0.85rem; font-weight:600; text-decoration:none;">
+                📥 Export CSV
+            </a>
+            <a href="?export=pdf&category={{ selected_category }}&start_date={{ start_date }}&end_date={{ end_date }}" style="display:inline-block; background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; padding:0.45rem 0.8rem; border-radius:4px; font-size:0.85rem; font-weight:600; text-decoration:none;">
+                📄 Export PDF
+            </a>
             <a href="{% url 'inventory:stock_ledger' %}" style="display:inline-block; background:#0284c7; color:#ffffff; padding:0.45rem 0.9rem; border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
                 📜 View Item Ledger
             </a>
