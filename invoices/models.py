@@ -108,6 +108,47 @@ class Invoice(models.Model):
     def is_dispatched(self) -> bool:
         return self.dispatched_at is not None
 
+    @property
+    def amount_paid(self) -> Decimal:
+        """Total payments received against this invoice."""
+        if self.status == InvoiceStatus.CANCELLED:
+            return Decimal('0.00')
+        res = self.payments.aggregate(total=models.Sum('amount'))['total']
+        return res or Decimal('0.00')
+
+    @property
+    def outstanding_balance(self) -> Decimal:
+        """Remaining unpaid balance on this invoice."""
+        if self.status == InvoiceStatus.CANCELLED:
+            return Decimal('0.00')
+        bal = self.grand_total - self.amount_paid
+        return max(Decimal('0.00'), bal)
+
+    @property
+    def is_fully_paid(self) -> bool:
+        return self.status == InvoiceStatus.POSTED and self.outstanding_balance == Decimal('0.00')
+
+    @property
+    def payment_status(self) -> str:
+        if self.status == InvoiceStatus.CANCELLED:
+            return 'cancelled'
+        paid = self.amount_paid
+        if paid <= Decimal('0.00'):
+            return 'unpaid'
+        elif paid >= self.grand_total:
+            return 'paid'
+        return 'partially_paid'
+
+    @property
+    def payment_status_display(self) -> str:
+        mapping = {
+            'cancelled': 'Cancelled',
+            'unpaid': 'Unpaid',
+            'partially_paid': 'Partially Paid',
+            'paid': 'Paid',
+        }
+        return mapping.get(self.payment_status, 'Unpaid')
+
 
 class InvoiceLine(models.Model):
     """One product line on a GST Tax Invoice."""
@@ -142,3 +183,82 @@ class InvoiceLine(models.Model):
 
     def __str__(self):
         return f"{self.invoice.invoice_number}: {self.product.name} × {self.quantity}"
+
+
+class PaymentMode(models.TextChoices):
+    BANK_TRANSFER = 'bank_transfer', 'Bank Transfer (NEFT/RTGS/IMPS)'
+    UPI           = 'upi',           'UPI'
+    CHEQUE        = 'cheque',        'Cheque'
+    CASH          = 'cash',          'Cash'
+    OTHER         = 'other',         'Other'
+
+
+class Payment(models.Model):
+    """
+    A payment recorded against an Invoice.
+    """
+    payment_number = models.CharField(
+        max_length=30,
+        unique=True,
+        editable=False,
+        help_text='Auto-generated payment receipt number, e.g. PAY-2026-27-0001',
+    )
+    invoice = models.ForeignKey(
+        Invoice,
+        on_delete=models.PROTECT,
+        related_name='payments',
+        help_text='Invoice against which payment is recorded',
+    )
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.PROTECT,
+        related_name='payments',
+        help_text='Customer making the payment',
+    )
+    payment_date = models.DateField(default=timezone.localdate)
+    amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        help_text='Payment amount in INR',
+    )
+    payment_mode = models.CharField(
+        max_length=20,
+        choices=PaymentMode.choices,
+        default=PaymentMode.BANK_TRANSFER,
+    )
+    reference_number = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text='Transaction ID, UTR, Cheque number, etc.',
+    )
+    notes = models.TextField(blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='recorded_payments',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-payment_date', '-created_at']
+        verbose_name = 'Invoice Payment'
+        verbose_name_plural = 'Invoice Payments'
+
+    def __str__(self):
+        return f"{self.payment_number} — ₹{self.amount} for {self.invoice.invoice_number}"
+
+    def clean(self):
+        if self.amount is not None and self.amount <= Decimal('0.00'):
+            raise ValidationError("Payment amount must be greater than zero.")
+        if self.invoice_id and self.invoice.status == InvoiceStatus.CANCELLED:
+            raise ValidationError("Cannot record payment against a cancelled invoice.")
+        if self.invoice_id:
+            existing_paid = self.invoice.payments.exclude(pk=self.pk).aggregate(
+                total=models.Sum('amount')
+            )['total'] or Decimal('0.00')
+            remaining = self.invoice.grand_total - existing_paid
+            if self.amount is not None and self.amount > remaining:
+                raise ValidationError(
+                    f"Payment amount (₹{self.amount}) exceeds the remaining invoice balance (₹{remaining})."
+                )

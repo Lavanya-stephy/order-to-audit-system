@@ -184,6 +184,9 @@ class ProductionRun(models.Model):
     def margin_pct(self) -> Decimal:
         """Profit margin as percentage of selling price."""
         if self.product and self.product.selling_price and self.product.selling_price > Decimal('0.00'):
+            if self.actual_yield and self.actual_yield > 0:
+                cost_unrounded = self.total_production_cost / Decimal(str(self.actual_yield))
+                return (((self.product.selling_price - cost_unrounded) / self.product.selling_price) * Decimal('100')).quantize(Decimal('0.01'))
             return ((self.margin_per_packet / self.product.selling_price) * Decimal('100')).quantize(Decimal('0.01'))
         return Decimal('0.00')
 
@@ -225,10 +228,16 @@ class ProductionRunItem(models.Model):
         help_text="Actual quantity issued / consumed"
     )
     unit_cost = models.DecimalField(
-        max_digits=10,
+        max_digits=14,
+        decimal_places=4,
+        default=Decimal('0.0000'),
+        help_text="Unit cost snapshot at time of issue in INR"
+    )
+    total_cost = models.DecimalField(
+        max_digits=14,
         decimal_places=2,
         default=Decimal('0.00'),
-        help_text="Rate per unit used for costing (₹)"
+        help_text="Total cost snapshot in INR (actual_quantity * unit_cost)"
     )
     movement_recorded = models.BooleanField(
         default=False,
@@ -291,6 +300,8 @@ class ProductionRunItem(models.Model):
 
     @property
     def actual_cost(self) -> Decimal:
+        if self.total_cost and self.total_cost > Decimal('0.00'):
+            return self.total_cost
         return (self.actual_quantity * self.unit_cost).quantize(Decimal('0.01'))
 
     def __str__(self):

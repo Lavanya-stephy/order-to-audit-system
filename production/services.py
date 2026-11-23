@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from masters.models import Product, BillOfMaterial, RawMaterial, PackagingItem
 from inventory.models import StockMovement, MovementType
-from inventory.services import record_movement
+from inventory.services import record_movement, get_weighted_average_unit_cost
 from .models import ProductionRun, ProductionRunItem, ProductionRunLog, DEFAULT_VARIANCE_TOLERANCE_PCT
 
 
@@ -133,9 +133,17 @@ def issue_materials_for_run(
                     data = lookup[item.id]
                     if 'actual_quantity' in data:
                         item.actual_quantity = Decimal(str(data['actual_quantity']))
-                    if 'unit_cost' in data:
+                    if 'unit_cost' in data and data['unit_cost'] is not None and Decimal(str(data['unit_cost'])) > Decimal('0'):
                         item.unit_cost = Decimal(str(data['unit_cost']))
+                    else:
+                        item.unit_cost = get_weighted_average_unit_cost(item.raw_material, at_datetime=timezone.now())
+                    item.total_cost = (item.actual_quantity * item.unit_cost).quantize(Decimal('0.01'))
                     item.save()
+        else:
+            for item in run.items.filter(raw_material__isnull=False):
+                item.unit_cost = get_weighted_average_unit_cost(item.raw_material, at_datetime=timezone.now())
+                item.total_cost = (item.actual_quantity * item.unit_cost).quantize(Decimal('0.01'))
+                item.save()
 
         # Record ledger issues for raw materials (reducing raw stock)
         issued_summary = []
@@ -222,7 +230,10 @@ def record_production_output(
                 pkg_summary.append(f"Cartons: {qty} pcs")
 
             item.actual_quantity = qty
-            item.save(update_fields=['actual_quantity'])
+            # Calculate and snapshot weighted average unit cost and total cost
+            item.unit_cost = get_weighted_average_unit_cost(pkg, at_datetime=timezone.now())
+            item.total_cost = (qty * item.unit_cost).quantize(Decimal('0.01'))
+            item.save(update_fields=['actual_quantity', 'unit_cost', 'total_cost'])
 
             if qty > Decimal('0') and not item.movement_recorded:
                 m = record_movement(
@@ -238,6 +249,12 @@ def record_production_output(
                 item.movement_recorded = True
                 item.save(update_fields=['movement_recorded'])
                 movements.append(m)
+
+        # Freeze cost snapshots on all raw material items as well
+        for rm_item in run.items.filter(raw_material__isnull=False):
+            if not rm_item.total_cost or rm_item.total_cost == Decimal('0.00'):
+                rm_item.total_cost = (rm_item.actual_quantity * rm_item.unit_cost).quantize(Decimal('0.01'))
+                rm_item.save(update_fields=['total_cost'])
 
         # 2. Finished goods output (finished goods stock up)
         if actual_yield > 0:

@@ -436,5 +436,189 @@ class InvoiceViewTests(InvoiceTestBase):
         self.assertTrue(pdf_bytes.startswith(b'%PDF-'))
 
 
+# ---------------------------------------------------------------------------
+# Payment Recording, Customer Balances & Ageing Report Tests
+# ---------------------------------------------------------------------------
+
+class InvoicePaymentAndAgeingTests(InvoiceTestBase):
+    def _create_retailer_a_invoice(self, qty=Decimal('150.00')):
+        order = create_sales_order(
+            salesman=self.salesman,
+            customer=self.retailer_a,
+            lines_data=[{'product': self.product, 'quantity': qty}],
+        )
+        approve_sales_order(order, self.admin)
+        return generate_invoice(order, user=self.admin)
+
+    def test_retailer_a_pays_4000_outstanding_is_3875(self):
+        """
+        User Requirement Test:
+        Retailer A orders 150 packets -> Invoice grand total = 7500 + 187.50 + 187.50 = 7875.00
+        Retailer A pays 4000.
+        Outstanding is 3875 (7875 - 4000 = 3875).
+        """
+        from invoices.models import PaymentMode
+        from invoices.services import record_payment, get_ageing_report, get_customer_outstanding_balance
+
+        inv = self._create_retailer_a_invoice(qty=Decimal('150.00'))
+        self.assertEqual(inv.grand_total, Decimal('7875.00'))
+        self.assertEqual(inv.amount_paid, Decimal('0.00'))
+        self.assertEqual(inv.outstanding_balance, Decimal('7875.00'))
+        self.assertEqual(self.retailer_a.outstanding_balance, Decimal('7875.00'))
+
+        # Record payment of 4000
+        payment = record_payment(
+            invoice=inv,
+            amount=Decimal('4000.00'),
+            payment_mode=PaymentMode.BANK_TRANSFER,
+            reference_number='NEFT-RET-A-001',
+            user=self.accountant,
+        )
+
+        self.assertIsNotNone(payment.payment_number)
+        self.assertTrue(payment.payment_number.startswith('PAY-'))
+        self.assertEqual(payment.amount, Decimal('4000.00'))
+
+        # Invoice balances after payment
+        inv.refresh_from_db()
+        self.assertEqual(inv.amount_paid, Decimal('4000.00'))
+        self.assertEqual(inv.outstanding_balance, Decimal('3875.00'))
+        self.assertEqual(inv.payment_status, 'partially_paid')
+
+        # Customer outstanding balance after payment
+        self.assertEqual(self.retailer_a.outstanding_balance, Decimal('3875.00'))
+        self.assertEqual(get_customer_outstanding_balance(self.retailer_a), Decimal('3875.00'))
+
+        # Check Ageing Report reflects the 3875 outstanding in 0-30 days
+        report = get_ageing_report(as_of_date=inv.invoice_date)
+        self.assertEqual(report['summary']['total_receivables'], Decimal('3875.00'))
+        self.assertEqual(report['summary']['total_0_30'], Decimal('3875.00'))
+        cust_entry = next(c for c in report['customers'] if c['customer'].id == self.retailer_a.id)
+        self.assertEqual(cust_entry['total_outstanding'], Decimal('3875.00'))
+        self.assertEqual(cust_entry['bucket_0_30'], Decimal('3875.00'))
+
+        # Full settlement: Retailer A pays remaining 3875
+        payment_2 = record_payment(
+            invoice=inv,
+            amount=Decimal('3875.00'),
+            payment_mode=PaymentMode.UPI,
+            reference_number='UPI-RET-A-002',
+            user=self.admin,
+        )
+        inv.refresh_from_db()
+        self.assertEqual(inv.amount_paid, Decimal('7875.00'))
+        self.assertEqual(inv.outstanding_balance, Decimal('0.00'))
+        self.assertEqual(inv.payment_status, 'paid')
+        self.assertTrue(inv.is_fully_paid)
+        self.assertEqual(self.retailer_a.outstanding_balance, Decimal('0.00'))
+
+        # After full settlement, Ageing Report has 0 receivables
+        report_settled = get_ageing_report(as_of_date=inv.invoice_date)
+        self.assertEqual(report_settled['summary']['total_receivables'], Decimal('0.00'))
+
+    def test_overpayment_validation(self):
+        """Cannot record a payment amount greater than the outstanding invoice balance."""
+        from invoices.services import record_payment
+        inv = self._create_retailer_a_invoice(qty=Decimal('150.00'))
+        with self.assertRaises(ValueError):
+            record_payment(inv, amount=Decimal('8000.00'), user=self.admin)
+
+    def test_cannot_pay_cancelled_invoice(self):
+        """Cannot record payment against a cancelled invoice."""
+        from invoices.services import record_payment, cancel_invoice
+        inv = self._create_retailer_a_invoice(qty=Decimal('150.00'))
+        cancel_invoice(inv, reason='Customer cancelled', user=self.admin)
+        with self.assertRaises(ValueError):
+            record_payment(inv, amount=Decimal('1000.00'), user=self.admin)
+
+    def test_ageing_report_buckets(self):
+        """
+        Verify ageing buckets: 0-30, 31-60, 61-90, 90+ days.
+        """
+        from datetime import timedelta
+        from invoices.services import get_ageing_report
+
+        today = timezone.localdate()
+        # Create an invoice for Retailer A with date 45 days in the past
+        inv_45d = self._create_retailer_a_invoice(qty=Decimal('150.00'))
+        inv_45d.invoice_date = today - timedelta(days=45)
+        inv_45d.save(update_fields=['invoice_date'])
+
+        # Create an invoice for Distributor B with date 95 days in the past
+        order_b = create_sales_order(
+            salesman=self.salesman,
+            customer=self.distributor_b,
+            lines_data=[{'product': self.product, 'quantity': Decimal('100.00')}],
+        )
+        approve_sales_order(order_b, self.admin)
+        inv_95d = generate_invoice(order_b, user=self.admin)
+        inv_95d.invoice_date = today - timedelta(days=95)
+        inv_95d.save(update_fields=['invoice_date'])
+
+        report = get_ageing_report(as_of_date=today)
+        self.assertEqual(report['summary']['total_31_60'], Decimal('7875.00'))  # Retailer A
+        self.assertEqual(report['summary']['total_90_plus'], inv_95d.grand_total)  # Distributor B
+        self.assertEqual(report['summary']['total_0_30'], Decimal('0.00'))
+
+    def test_payment_view_post_and_role_access(self):
+        """
+        Test HTTP POST to record payment:
+        - Admin and Accountant can post payments
+        - Salesman cannot post payments (403)
+        """
+        inv = self._create_retailer_a_invoice(qty=Decimal('150.00'))
+        client = Client()
+        client.login(username='accountant', password=self.password)
+
+        url = reverse('invoices:record_payment', kwargs={'pk': inv.pk})
+        res = client.post(url, {
+            'amount': '4000.00',
+            'payment_date': str(timezone.localdate()),
+            'payment_mode': 'bank_transfer',
+            'reference_number': 'REF1234',
+            'notes': 'Advance payment',
+        })
+        self.assertEqual(res.status_code, 302)
+        inv.refresh_from_db()
+        self.assertEqual(inv.outstanding_balance, Decimal('3875.00'))
+
+        # Salesman cannot record payments
+        salesman_client = Client()
+        salesman_client.login(username='salesman', password=self.password)
+        res_salesman = salesman_client.post(url, {'amount': '1000.00'})
+        self.assertEqual(res_salesman.status_code, 403)
+
+    def test_customer_balances_view_and_ageing_view(self):
+        """Test GET customer balances and ageing report views."""
+        from invoices.services import record_payment
+
+        inv = self._create_retailer_a_invoice(qty=Decimal('150.00'))
+        record_payment(inv, amount=Decimal('4000.00'), user=self.admin)
+
+        client = Client()
+        client.login(username='admin', password=self.password)
+
+        # Balances view
+        res_bal = client.get(reverse('invoices:customer_balances'))
+        self.assertEqual(res_bal.status_code, 200)
+        content_bal = res_bal.content.decode()
+        self.assertIn('Retailer A', content_bal)
+        self.assertIn('3875', content_bal)
+
+        # Ageing report view
+        res_age = client.get(reverse('invoices:ageing_report'))
+        self.assertEqual(res_age.status_code, 200)
+        content_age = res_age.content.decode()
+        self.assertIn('3875', content_age)
+        self.assertIn('0 – 30 Days', content_age)
+
+        # Payments list view
+        res_pay = client.get(reverse('invoices:payment_list'))
+        self.assertEqual(res_pay.status_code, 200)
+        content_pay = res_pay.content.decode()
+        self.assertIn('4000', content_pay)
+
+
+
 
 

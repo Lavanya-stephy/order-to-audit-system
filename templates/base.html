@@ -32,48 +32,124 @@
             flex-direction: column;
             line-height: 1.5;
         }
-        header {
+        header.app-header {
             background-color: var(--primary);
             color: #ffffff;
-            padding: 0.85rem 1.5rem;
+            padding: 0.5rem 1.25rem;
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: relative;
+            z-index: 1000;
+            flex-wrap: nowrap;
+        }
+        .header-brand-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
         }
         .brand {
             display: flex;
             align-items: center;
-            gap: 0.6rem;
+            gap: 0.4rem;
             font-weight: 700;
-            font-size: 1.15rem;
+            font-size: 1.05rem;
             text-decoration: none;
             color: #ffffff;
+            white-space: nowrap;
         }
-        .user-nav {
+        .nav-toggle {
+            display: none;
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #ffffff;
+            font-size: 1.25rem;
+            line-height: 1;
+            padding: 0.3rem 0.6rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .nav-toggle:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+        .nav-menu {
             display: flex;
             align-items: center;
-            gap: 1rem;
-            font-size: 0.9rem;
+            justify-content: space-between;
+            flex: 1;
+            gap: 0.75rem;
+            min-width: 0;
+            flex-wrap: nowrap;
+            white-space: nowrap;
+        }
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            flex-wrap: nowrap;
+            white-space: nowrap;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .nav-links::-webkit-scrollbar {
+            display: none;
+        }
+        .nav-link {
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 0.8rem;
+            font-weight: 500;
+            padding: 0.25rem 0.45rem;
+            border-radius: 4px;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.18);
+        }
+        .user-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+        .user-name {
+            font-weight: 600;
+            max-width: 110px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         .role-badge {
             background-color: rgba(255, 255, 255, 0.2);
-            padding: 0.25rem 0.6rem;
+            padding: 0.18rem 0.45rem;
             border-radius: 9999px;
             font-weight: 600;
-            font-size: 0.8rem;
+            font-size: 0.72rem;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.04em;
+            white-space: nowrap;
         }
         .btn-logout {
             background: none;
             border: 1px solid rgba(255, 255, 255, 0.4);
             color: #ffffff;
-            padding: 0.35rem 0.75rem;
+            padding: 0.22rem 0.55rem;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 0.85rem;
-            transition: background 0.2s;
+            font-size: 0.78rem;
+            font-weight: 500;
+            transition: background 0.15s;
+            white-space: nowrap;
         }
         .btn-logout:hover {
             background: rgba(255, 255, 255, 0.2);
@@ -135,15 +211,58 @@
             font-size: 0.825rem;
             color: var(--text-muted);
         }
-        @media (max-width: 640px) {
-            header {
-                flex-direction: column;
-                gap: 0.5rem;
-                align-items: flex-start;
+        @media (max-width: 990px) {
+            header.app-header {
+                flex-wrap: wrap;
+                padding: 0.75rem 1rem;
             }
-            .user-nav {
+            .header-brand-row {
+                width: 100%;
+            }
+            .nav-toggle {
+                display: block;
+            }
+            .nav-menu {
+                display: none;
+                width: 100%;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.65rem;
+                padding-top: 0.75rem;
+                border-top: 1px solid rgba(255, 255, 255, 0.15);
+                margin-top: 0.5rem;
+            }
+            .nav-menu.is-open {
+                display: flex;
+            }
+            .nav-links {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.3rem;
+                overflow-x: visible;
+            }
+            .nav-link {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.9rem;
+                border-radius: 6px;
+                background: rgba(255, 255, 255, 0.08);
+            }
+            .nav-link:hover {
+                background: rgba(255, 255, 255, 0.2);
+            }
+            .user-meta {
                 width: 100%;
                 justify-content: space-between;
+                padding-top: 0.6rem;
+                border-top: 1px dashed rgba(255, 255, 255, 0.2);
+                font-size: 0.85rem;
+            }
+            .user-name {
+                max-width: none;
+            }
+            .btn-logout {
+                padding: 0.35rem 0.75rem;
+                font-size: 0.85rem;
             }
             main {
                 padding: 1rem;
@@ -153,56 +272,77 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body>
-    <header>
-        <a href="{% url 'role_redirect' %}" class="brand">
-            <span>🏭 Order-to-Audit</span>
-        </a>
-        <div class="user-nav">
+    <header class="app-header">
+        <div class="header-brand-row">
+            <a href="{% url 'role_redirect' %}" class="brand">
+                <span>🏭 Order-to-Audit</span>
+            </a>
             {% if user.is_authenticated %}
-                {% if user.role != 'salesman' %}
-                    <a href="{% url 'inventory:stock_summary' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
-                        📊 Stock Summary
-                    </a>
-                    <a href="{% url 'inventory:stock_ledger' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
-                        📜 Stock Ledger
-                    </a>
-                    {% if user.role == 'admin' or user.role == 'owner' or user.role == 'accountant' or user.is_superuser %}
-                    <a href="{% url 'orders:admin_order_list' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
-                        📥 Orders
-                    </a>
-                    <a href="{% url 'invoices:invoice_list' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
-                        🧾 Invoices
-                    </a>
-                    {% endif %}
-                    {% if user.role == 'admin' or user.role == 'production' or user.is_superuser %}
-                    <a href="{% url 'purchases:purchase_list' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
-                        🛒 Purchases
-                    </a>
-                    {% endif %}
-                    <a href="{% url 'production:production_run_list' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
-                        🏭 Production
-                    </a>
-                    <a href="{% url 'masters:hub' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:500;">
-                        📁 Master Data
-                    </a>
-                {% else %}
-                    <a href="{% url 'orders:order_create' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:600;">
-                        ➕ New Order
-                    </a>
-                    <a href="{% url 'orders:salesman_order_list' %}" style="color:#ffffff; text-decoration:none; margin-right:0.75rem; font-weight:600;">
-                        📋 My Orders
-                    </a>
-                {% endif %}
-                <span>{{ user.username }}</span>
-                <span class="role-badge">{{ user.get_role_display }}</span>
-                <form action="{% url 'logout' %}" method="post" style="display:inline;">
-                    {% csrf_token %}
-                    <button type="submit" class="btn-logout">Logout</button>
-                </form>
-            {% else %}
-                <a href="{% url 'login' %}" style="color:#ffffff; text-decoration:none; font-weight:600;">Login</a>
+            <button id="navToggle" class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false" onclick="toggleNavMenu()">
+                <span id="navToggleIcon">☰</span>
+            </button>
             {% endif %}
         </div>
+
+        <nav id="navMenu" class="nav-menu">
+            {% if user.is_authenticated %}
+                <div class="nav-links">
+                    {% if user.role != 'salesman' %}
+                        <a href="{% url 'inventory:stock_summary' %}" class="nav-link" title="Inventory Stock Summary">
+                            📊 Stock
+                        </a>
+                        <a href="{% url 'inventory:stock_ledger' %}" class="nav-link" title="Itemized Stock Ledger">
+                            📜 Ledger
+                        </a>
+                        {% if user.role == 'admin' or user.role == 'owner' or user.role == 'accountant' or user.is_superuser %}
+                        <a href="{% url 'orders:admin_order_list' %}" class="nav-link" title="Incoming Sales Orders">
+                            📥 Orders
+                        </a>
+                        <a href="{% url 'invoices:invoice_list' %}" class="nav-link" title="GST Tax Invoices">
+                            🧾 Invoices
+                        </a>
+                        <a href="{% url 'invoices:ageing_report' %}" class="nav-link" title="Accounts Receivable Ageing Report">
+                            📊 Ageing
+                        </a>
+                        {% endif %}
+                        {% if user.role == 'admin' or user.role == 'production' or user.is_superuser %}
+                        <a href="{% url 'purchases:purchase_list' %}" class="nav-link" title="Raw Material Purchases">
+                            🛒 Purchases
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'production:production_run_list' %}" class="nav-link" title="Production Runs & Batch Costing">
+                            🏭 Production
+                        </a>
+                        <a href="{% url 'production:product_costing' %}" class="nav-link" title="Product Costing & Margin Analysis">
+                            💰 Costing
+                        </a>
+                        <a href="{% url 'masters:hub' %}" class="nav-link" title="Master Data Hub">
+                            📁 Masters
+                        </a>
+                    {% else %}
+                        <a href="{% url 'orders:order_create' %}" class="nav-link" title="Create Sales Order">
+                            ➕ New Order
+                        </a>
+                        <a href="{% url 'orders:salesman_order_list' %}" class="nav-link" title="My Submitted Orders">
+                            📋 My Orders
+                        </a>
+                    {% endif %}
+                </div>
+
+                <div class="user-meta">
+                    <span class="user-name" title="{{ user.username }}">{{ user.username }}</span>
+                    <span class="role-badge">{{ user.get_role_display }}</span>
+                    <form action="{% url 'logout' %}" method="post" style="display:inline; margin:0;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-logout">Logout</button>
+                    </form>
+                </div>
+            {% else %}
+                <div class="user-meta">
+                    <a href="{% url 'login' %}" class="nav-link" style="font-weight:600;">Login</a>
+                </div>
+            {% endif %}
+        </nav>
     </header>
 
     <main>
@@ -212,5 +352,18 @@
     <footer>
         Order-to-Audit System &bull; Demo Snacks Pvt Ltd &bull; 12 Industrial Estate, Tiruchirappalli - 620001 &bull; All data in this system is dummy data for evaluation.
     </footer>
+
+    <script>
+        function toggleNavMenu() {
+            var menu = document.getElementById('navMenu');
+            var icon = document.getElementById('navToggleIcon');
+            var toggle = document.getElementById('navToggle');
+            if (menu) {
+                var isOpen = menu.classList.toggle('is-open');
+                if (toggle) toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                if (icon) icon.textContent = isOpen ? '✕' : '☰';
+            }
+        }
+    </script>
 </body>
 </html>

@@ -52,9 +52,9 @@ class StockMovement(models.Model):
         help_text="Unit of measure for this movement"
     )
     unit_cost = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        default=Decimal('0.00'),
+        max_digits=14,
+        decimal_places=4,
+        default=Decimal('0.0000'),
         help_text="Unit cost/rate at movement time in INR"
     )
     movement_type = models.CharField(

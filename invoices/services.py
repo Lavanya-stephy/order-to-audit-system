@@ -18,7 +18,7 @@ from django.utils import timezone
 from orders.models import SalesOrder, SalesOrderLog, OrderStatus
 from inventory.models import MovementType
 from inventory.services import record_movement
-from .models import Invoice, InvoiceLine, InvoiceStatus, FACTORY_STATE_CODE
+from .models import Invoice, InvoiceLine, InvoiceStatus, Payment, PaymentMode, FACTORY_STATE_CODE
 
 
 # ---------------------------------------------------------------------------
@@ -70,6 +70,25 @@ def _next_cn_sequence(prefix: str) -> str:
     else:
         try:
             seq = int(last.credit_note_number.rsplit('-', 1)[-1]) + 1
+        except ValueError:
+            seq = 1
+    return f"{prefix}{seq:04d}"
+
+
+def _next_payment_sequence(prefix: str) -> str:
+    """Finds next sequential number for payment receipts, e.g. 'PAY-2026-27-0001'."""
+    qs = (
+        Payment.objects
+        .filter(payment_number__startswith=prefix)
+        .order_by('-payment_number')
+        .select_for_update()
+    )
+    last = qs.first()
+    if last is None:
+        seq = 1
+    else:
+        try:
+            seq = int(last.payment_number.rsplit('-', 1)[-1]) + 1
         except ValueError:
             seq = 1
     return f"{prefix}{seq:04d}"
@@ -308,3 +327,203 @@ def cancel_invoice(invoice: Invoice, reason: str, user=None) -> Invoice:
         details=f"Invoice {invoice.invoice_number} cancelled. Credit Note: {credit_note_number}. Reason: {reason}",
     )
     return invoice
+
+
+# ---------------------------------------------------------------------------
+# record_payment
+# ---------------------------------------------------------------------------
+
+@transaction.atomic
+def record_payment(
+    invoice: Invoice,
+    amount: Decimal,
+    payment_date=None,
+    payment_mode=PaymentMode.BANK_TRANSFER,
+    reference_number: str = '',
+    notes: str = '',
+    user=None,
+) -> Payment:
+    """
+    Records a payment against a posted Invoice.
+    Reduces the invoice outstanding balance and customer outstanding balance.
+    Raises ValueError if invoice is not posted, amount <= 0, or amount > outstanding_balance.
+    """
+    if invoice.status != InvoiceStatus.POSTED:
+        raise ValueError(
+            f"Cannot record payment for invoice {invoice.invoice_number} with status {invoice.get_status_display()}."
+        )
+
+    amount = Decimal(str(amount))
+    if amount <= Decimal('0.00'):
+        raise ValueError("Payment amount must be greater than zero.")
+
+    remaining = invoice.outstanding_balance
+    if amount > remaining:
+        raise ValueError(
+            f"Payment amount ₹{amount} exceeds remaining outstanding balance of ₹{remaining}."
+        )
+
+    if payment_date is None:
+        payment_date = timezone.localdate()
+
+    fy = _financial_year(payment_date)
+    prefix = f"PAY-{fy}-"
+    payment_number = _next_payment_sequence(prefix)
+
+    payment = Payment.objects.create(
+        payment_number=payment_number,
+        invoice=invoice,
+        customer=invoice.customer,
+        payment_date=payment_date,
+        amount=amount,
+        payment_mode=payment_mode,
+        reference_number=reference_number.strip(),
+        notes=notes.strip(),
+        recorded_by=user,
+    )
+
+    SalesOrderLog.objects.create(
+        order=invoice.order,
+        user=user,
+        action='Payment Received',
+        details=(
+            f"Payment {payment_number} of ₹{amount} recorded ({payment.get_payment_mode_display()}). "
+            f"Invoice remaining balance: ₹{invoice.outstanding_balance}"
+        ),
+    )
+
+    return payment
+
+
+def get_customer_outstanding_balance(customer) -> Decimal:
+    """Returns the total outstanding balance for a customer."""
+    return customer.outstanding_balance
+
+
+# ---------------------------------------------------------------------------
+# get_ageing_report  (Accounts Receivable Ageing)
+# ---------------------------------------------------------------------------
+
+def get_ageing_report(as_of_date: date = None) -> dict:
+    """
+    Calculates Accounts Receivable (AR) Ageing Report as of a given date (defaults to today).
+    Buckets:
+      - 0–30 Days
+      - 31–60 Days
+      - 61–90 Days
+      - 90+ Days
+    Returns a dictionary with:
+      - 'as_of_date': date
+      - 'summary': {
+            'total_receivables': Decimal,
+            'total_0_30': Decimal,
+            'total_31_60': Decimal,
+            'total_61_90': Decimal,
+            'total_90_plus': Decimal,
+            'customer_count': int,
+            'invoice_count': int,
+        }
+      - 'customers': list of customer ageing summaries
+      - 'invoices': list of individual unpaid/partially-paid invoice ageing items
+    """
+    if as_of_date is None:
+        as_of_date = timezone.localdate()
+
+    posted_invoices = (
+        Invoice.objects
+        .filter(status=InvoiceStatus.POSTED)
+        .select_related('customer', 'order')
+        .prefetch_related('payments')
+        .order_by('invoice_date', 'invoice_number')
+    )
+
+    summary = {
+        'total_receivables': Decimal('0.00'),
+        'total_0_30': Decimal('0.00'),
+        'total_31_60': Decimal('0.00'),
+        'total_61_90': Decimal('0.00'),
+        'total_90_plus': Decimal('0.00'),
+        'customer_count': 0,
+        'invoice_count': 0,
+    }
+
+    customer_map = {}
+    invoice_list = []
+
+    for inv in posted_invoices:
+        outstanding = inv.outstanding_balance
+        if outstanding <= Decimal('0.00'):
+            continue  # fully paid, skip
+
+        age_days = (as_of_date - inv.invoice_date).days
+        if age_days <= 30:
+            bucket_key = '0_30'
+        elif age_days <= 60:
+            bucket_key = '31_60'
+        elif age_days <= 90:
+            bucket_key = '61_90'
+        else:
+            bucket_key = '90_plus'
+
+        summary['total_receivables'] += outstanding
+        summary['invoice_count'] += 1
+        if bucket_key == '0_30':
+            summary['total_0_30'] += outstanding
+        elif bucket_key == '31_60':
+            summary['total_31_60'] += outstanding
+        elif bucket_key == '61_90':
+            summary['total_61_90'] += outstanding
+        else:
+            summary['total_90_plus'] += outstanding
+
+        inv_data = {
+            'invoice': inv,
+            'customer': inv.customer,
+            'invoice_number': inv.invoice_number,
+            'invoice_date': inv.invoice_date,
+            'grand_total': inv.grand_total,
+            'amount_paid': inv.amount_paid,
+            'outstanding': outstanding,
+            'age_days': max(0, age_days),
+            'bucket': bucket_key,
+        }
+        invoice_list.append(inv_data)
+
+        cust_id = inv.customer.id
+        if cust_id not in customer_map:
+            customer_map[cust_id] = {
+                'customer': inv.customer,
+                'name': inv.customer.name,
+                'customer_type': inv.customer.get_customer_type_display(),
+                'state': inv.customer.state,
+                'credit_limit': inv.customer.credit_limit,
+                'bucket_0_30': Decimal('0.00'),
+                'bucket_31_60': Decimal('0.00'),
+                'bucket_61_90': Decimal('0.00'),
+                'bucket_90_plus': Decimal('0.00'),
+                'total_outstanding': Decimal('0.00'),
+                'invoices': [],
+            }
+
+        c_entry = customer_map[cust_id]
+        c_entry['total_outstanding'] += outstanding
+        if bucket_key == '0_30':
+            c_entry['bucket_0_30'] += outstanding
+        elif bucket_key == '31_60':
+            c_entry['bucket_31_60'] += outstanding
+        elif bucket_key == '61_90':
+            c_entry['bucket_61_90'] += outstanding
+        else:
+            c_entry['bucket_90_plus'] += outstanding
+        c_entry['invoices'].append(inv_data)
+
+    customers = sorted(customer_map.values(), key=lambda x: x['total_outstanding'], reverse=True)
+    summary['customer_count'] = len(customers)
+
+    return {
+        'as_of_date': as_of_date,
+        'summary': summary,
+        'customers': customers,
+        'invoices': invoice_list,
+    }
+

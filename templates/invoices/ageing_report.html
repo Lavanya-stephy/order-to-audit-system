@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+{% block title %}AR Ageing Report — Order-to-Audit{% endblock %}
+
+{% block extra_head %}
+<style>
+    .subnav-pills { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+    .subnav-pill {
+        display: inline-block; padding: 0.4rem 0.85rem; border-radius: 6px;
+        text-decoration: none; font-size: 0.85rem; font-weight: 600;
+        border: 1px solid var(--border); background: #ffffff; color: var(--text-dark);
+        transition: all 0.15s ease;
+    }
+    .subnav-pill.active { background: var(--primary); color: #ffffff; border-color: var(--primary); }
+    .subnav-pill:hover:not(.active) { background: #f1f5f9; }
+
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .kpi-card { background: #ffffff; border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; }
+    .kpi-card.highlight { border-left: 4px solid #2563eb; }
+    .kpi-card.b-0-30 { border-left: 4px solid #16a34a; }
+    .kpi-card.b-31-60 { border-left: 4px solid #ca8a04; }
+    .kpi-card.b-61-90 { border-left: 4px solid #ea580c; }
+    .kpi-card.b-90-plus { border-left: 4px solid #dc2626; }
+    .kpi-title { font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--text-muted); margin-bottom: 0.35rem; }
+    .kpi-value { font-size: 1.45rem; font-weight: 800; color: var(--text-dark); }
+
+    .report-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    .report-table th { padding: 0.65rem 0.8rem; border-bottom: 2px solid var(--border); background: #f8fafc; text-align: left; font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); }
+    .report-table td { padding: 0.65rem 0.8rem; border-bottom: 1px solid var(--border); }
+    .report-table tr:hover td { background: #f8fafc; }
+    .badge-bucket { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700; }
+    .badge-0_30    { background: #dcfce7; color: #166534; }
+    .badge-31_60   { background: #fef9c3; color: #854d0e; }
+    .badge-61_90   { background: #ffedd5; color: #9a3412; }
+    .badge-90_plus { background: #fee2e2; color: #991b1b; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
+    <div>
+        <h2 style="font-size:1.35rem; margin:0;">📊 Accounts Receivable (AR) Ageing Report</h2>
+        <p style="color:var(--text-muted); font-size:0.875rem; margin-top:0.2rem;">
+            Outstanding receivables breakdown by payment age buckets as of <strong>{{ as_of_date|date:"d M Y" }}</strong>.
+        </p>
+    </div>
+    <form method="get" style="display:flex; gap:0.5rem; align-items:center;">
+        <label for="as_of_date" style="font-size:0.85rem; font-weight:600; color:var(--text-dark);">As of Date:</label>
+        <input type="date" id="as_of_date" name="as_of_date" value="{{ as_of_date|date:'Y-m-d' }}"
+               style="padding:0.4rem 0.65rem; border:1px solid var(--border); border-radius:4px; font-size:0.85rem;">
+        <button type="submit" style="background:var(--primary); color:#ffffff; border:none; padding:0.45rem 0.9rem; border-radius:4px; font-weight:600; font-size:0.85rem; cursor:pointer;">
+            Update
+        </button>
+    </form>
+</div>
+
+<!-- Navigation Pills -->
+<div class="subnav-pills">
+    <a href="{% url 'invoices:invoice_list' %}" class="subnav-pill">🧾 All Invoices</a>
+    <a href="{% url 'invoices:payment_list' %}" class="subnav-pill">💳 Payment Receipts</a>
+    <a href="{% url 'invoices:customer_balances' %}" class="subnav-pill">👥 Customer Balances</a>
+    <a href="{% url 'invoices:ageing_report' %}" class="subnav-pill active">📊 Ageing Report</a>
+</div>
+
+<!-- KPI Summary Cards -->
+<div class="kpi-grid">
+    <div class="kpi-card highlight">
+        <div class="kpi-title">Total Receivables</div>
+        <div class="kpi-value" style="color:#1e3a8a;">₹{{ summary.total_receivables }}</div>
+        <div style="font-size:0.78rem; color:var(--text-muted); margin-top:0.25rem;">
+            {{ summary.invoice_count }} open invoice{{ summary.invoice_count|pluralize }} &bull; {{ summary.customer_count }} customer{{ summary.customer_count|pluralize }}
+        </div>
+    </div>
+    <div class="kpi-card b-0-30">
+        <div class="kpi-title">0 – 30 Days (Current)</div>
+        <div class="kpi-value" style="color:#166534;">₹{{ summary.total_0_30 }}</div>
+        <div style="font-size:0.78rem; color:var(--text-muted); margin-top:0.25rem;">Within standard terms</div>
+    </div>
+    <div class="kpi-card b-31-60">
+        <div class="kpi-title">31 – 60 Days</div>
+        <div class="kpi-value" style="color:#854d0e;">₹{{ summary.total_31_60 }}</div>
+        <div style="font-size:0.78rem; color:var(--text-muted); margin-top:0.25rem;">Past due (1 month)</div>
+    </div>
+    <div class="kpi-card b-61-90">
+        <div class="kpi-title">61 – 90 Days</div>
+        <div class="kpi-value" style="color:#9a3412;">₹{{ summary.total_61_90 }}</div>
+        <div style="font-size:0.78rem; color:var(--text-muted); margin-top:0.25rem;">Attention required</div>
+    </div>
+    <div class="kpi-card b-90-plus">
+        <div class="kpi-title">&gt; 90 Days</div>
+        <div class="kpi-value" style="color:#991b1b;">₹{{ summary.total_90_plus }}</div>
+        <div style="font-size:0.78rem; color:var(--text-muted); margin-top:0.25rem;">Critical overdue</div>
+    </div>
+</div>
+
+<!-- Customer Ageing Summary Table -->
+<div class="card" style="padding:0; overflow-x:auto; margin-bottom:1.5rem;">
+    <div style="padding:1rem 1.25rem; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0; font-size:1.05rem; color:var(--text-dark);">👥 Customer Ageing Breakdown</h3>
+        <span style="font-size:0.82rem; color:var(--text-muted);">{{ customers|length }} customer{{ customers|length|pluralize }} with outstanding balances</span>
+    </div>
+    {% if customers %}
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>Customer Name</th>
+                <th>Type / State</th>
+                <th style="text-align:right;">0 – 30 Days</th>
+                <th style="text-align:right;">31 – 60 Days</th>
+                <th style="text-align:right;">61 – 90 Days</th>
+                <th style="text-align:right;">&gt; 90 Days</th>
+                <th style="text-align:right;">Total Outstanding</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in customers %}
+            <tr>
+                <td>
+                    <div style="font-weight:700; color:var(--text-dark);">{{ c.name }}</div>
+                    {% if c.credit_limit > 0 %}
+                    <div style="font-size:0.75rem; color:var(--text-muted);">Credit Limit: ₹{{ c.credit_limit }}</div>
+                    {% endif %}
+                </td>
+                <td>
+                    <span style="font-weight:600;">{{ c.customer_type }}</span> &bull; {{ c.state }}
+                </td>
+                <td style="text-align:right; font-weight:{% if c.bucket_0_30 > 0 %}700{% else %}400{% endif %}; color:{% if c.bucket_0_30 > 0 %}#166534{% else %}var(--text-muted){% endif %};">
+                    ₹{{ c.bucket_0_30 }}
+                </td>
+                <td style="text-align:right; font-weight:{% if c.bucket_31_60 > 0 %}700{% else %}400{% endif %}; color:{% if c.bucket_31_60 > 0 %}#854d0e{% else %}var(--text-muted){% endif %};">
+                    ₹{{ c.bucket_31_60 }}
+                </td>
+                <td style="text-align:right; font-weight:{% if c.bucket_61_90 > 0 %}700{% else %}400{% endif %}; color:{% if c.bucket_61_90 > 0 %}#9a3412{% else %}var(--text-muted){% endif %};">
+                    ₹{{ c.bucket_61_90 }}
+                </td>
+                <td style="text-align:right; font-weight:{% if c.bucket_90_plus > 0 %}700{% else %}400{% endif %}; color:{% if c.bucket_90_plus > 0 %}#991b1b{% else %}var(--text-muted){% endif %};">
+                    ₹{{ c.bucket_90_plus }}
+                </td>
+                <td style="text-align:right; font-weight:800; font-size:0.95rem; color:#1e3a8a;">
+                    ₹{{ c.total_outstanding }}
+                </td>
+                <td style="text-align:right;">
+                    <a href="{% url 'invoices:payment_list' %}?customer={{ c.customer.id }}" style="font-size:0.8rem; color:var(--primary); font-weight:600;">Payments &rarr;</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr style="background:#f1f5f9; font-weight:800; border-top:2px solid var(--border);">
+                <td colspan="2" style="padding:0.75rem 0.8rem;">TOTAL</td>
+                <td style="text-align:right; color:#166534;">₹{{ summary.total_0_30 }}</td>
+                <td style="text-align:right; color:#854d0e;">₹{{ summary.total_31_60 }}</td>
+                <td style="text-align:right; color:#9a3412;">₹{{ summary.total_61_90 }}</td>
+                <td style="text-align:right; color:#991b1b;">₹{{ summary.total_90_plus }}</td>
+                <td style="text-align:right; color:#1e3a8a; font-size:1rem;">₹{{ summary.total_receivables }}</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+    {% else %}
+    <div style="padding:2.5rem; text-align:center; color:var(--text-muted);">
+        <div style="font-size:2rem; margin-bottom:0.5rem;">🎉</div>
+        <strong>No outstanding receivables!</strong> All customer invoices are fully settled.
+    </div>
+    {% endif %}
+</div>
+
+<!-- Detailed Invoice Ageing Table -->
+{% if invoices %}
+<div class="card" style="padding:0; overflow-x:auto;">
+    <div style="padding:1rem 1.25rem; border-bottom:1px solid var(--border);">
+        <h3 style="margin:0; font-size:1.05rem; color:var(--text-dark);">📄 Open Invoices Detail</h3>
+    </div>
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>Invoice #</th>
+                <th>Date</th>
+                <th>Customer</th>
+                <th style="text-align:center;">Age (Days)</th>
+                <th style="text-align:center;">Bucket</th>
+                <th style="text-align:right;">Invoice Total</th>
+                <th style="text-align:right;">Amount Paid</th>
+                <th style="text-align:right;">Balance Due</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in invoices %}
+            <tr>
+                <td>
+                    <a href="{% url 'invoices:invoice_detail' item.invoice.pk %}" style="font-family:monospace; font-weight:700; color:var(--primary);">
+                        {{ item.invoice_number }}
+                    </a>
+                </td>
+                <td style="color:var(--text-muted);">{{ item.invoice_date|date:"d M Y" }}</td>
+                <td style="font-weight:600;">{{ item.customer.name }}</td>
+                <td style="text-align:center; font-weight:700;">{{ item.age_days }} d</td>
+                <td style="text-align:center;">
+                    <span class="badge-bucket badge-{{ item.bucket }}">
+                        {% if item.bucket == '0_30' %}0–30 Days{% elif item.bucket == '31_60' %}31–60 Days{% elif item.bucket == '61_90' %}61–90 Days{% else %}&gt;90 Days{% endif %}
+                    </span>
+                </td>
+                <td style="text-align:right;">₹{{ item.grand_total }}</td>
+                <td style="text-align:right; color:#166534;">₹{{ item.amount_paid }}</td>
+                <td style="text-align:right; font-weight:800; color:#dc2626;">₹{{ item.outstanding }}</td>
+                <td style="text-align:right;">
+                    <a href="{% url 'invoices:invoice_detail' item.invoice.pk %}" style="font-size:0.8rem; color:var(--primary); font-weight:600;">View / Pay &rarr;</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -2,11 +2,12 @@ from decimal import Decimal
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 
 from accounts.models import Role
 from masters.models import Unit, UnitCategory, RawMaterial, PackagingItem, Product, BillOfMaterial, BOMLine, Supplier
 from inventory.models import StockMovement, MovementType
-from inventory.services import record_movement, get_item_current_stock
+from inventory.services import record_movement, get_item_current_stock, get_weighted_average_unit_cost
 from purchases.models import PurchaseOrder, PurchaseOrderLine
 from purchases.services import receive_purchase_order
 from production.models import ProductionRun, ProductionRunItem, ProductionRunLog
@@ -218,7 +219,7 @@ class BenchmarkProductionRunTests(TestCase):
         self.assertEqual(run.total_production_cost, Decimal('5930.00'))
         self.assertEqual(run.actual_cost_per_packet, Decimal('31.54'))
         self.assertEqual(run.margin_per_packet, Decimal('18.46'))
-        self.assertEqual(run.margin_pct, Decimal('36.92'))
+        self.assertEqual(run.margin_pct, Decimal('36.91'))
 
     def test_configurable_variance_tolerance(self):
         """
@@ -449,3 +450,294 @@ class ProductionPermissionsTests(TestCase):
         closing_stock = get_item_current_stock(spice)
         self.assertEqual(closing_stock, Decimal("3.8"))
         self.assertEqual(closing_stock, Decimal("3.8000"))
+
+
+class ProductionRunCostingTests(TestCase):
+    """
+    Tests for run-level costing using the weighted average cost method:
+    - Weighted average calculation on issues and outputs
+    - Snapshot preservation on completed runs
+    - Absorption of damaged packaging into good packet costs
+    - Overhead rule (labour + gas/power fully charged to run product)
+    - Later purchases at different rates do not alter completed runs
+    - Management command recalculate_production_costs
+    - Product costing page rendering
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='cost_admin', password='pw', role=Role.ADMIN)
+
+        # Units
+        self.kg = Unit.objects.create(name='Kilogram', symbol='kg', category=UnitCategory.WEIGHT)
+        self.g = Unit.objects.create(name='Gram', symbol='g', category=UnitCategory.WEIGHT)
+        self.litre = Unit.objects.create(name='Litre', symbol='litre', category=UnitCategory.VOLUME)
+        self.piece = Unit.objects.create(name='Piece', symbol='piece', category=UnitCategory.COUNT)
+        self.packet = Unit.objects.create(name='Packet', symbol='packet', category=UnitCategory.COUNT)
+
+        # Raw Materials
+        self.flour = RawMaterial.objects.create(name='Flour', code='RM-FLOUR-COST', unit=self.kg, standard_cost=Decimal('42.00'))
+        self.oil = RawMaterial.objects.create(name='Cooking oil', code='RM-OIL-COST', unit=self.litre, standard_cost=Decimal('140.00'))
+        self.spice = RawMaterial.objects.create(name='Spice mix', code='RM-SPICE-COST', unit=self.kg, standard_cost=Decimal('200.00'))
+
+        # Packaging Items
+        self.pouch = PackagingItem.objects.create(name='200 g pouch', code='PM-POUCH-COST', unit=self.piece, standard_cost=Decimal('2.50'), capacity_packets=1)
+        self.carton = PackagingItem.objects.create(name='Carton', code='PM-CARTON-COST', unit=self.piece, standard_cost=Decimal('15.00'), capacity_packets=20)
+
+        # Finished Product
+        self.product = Product.objects.create(
+            name='Murukku 200 g Costing', code='FG-MURUKKU-COST', unit=self.packet,
+            pack_size=Decimal('200.00'), pack_size_unit=self.g,
+            selling_price=Decimal('50.00'), gst_rate=Decimal('5.00'), carton_pack_qty=20,
+        )
+
+        # BOM
+        self.bom = BillOfMaterial.objects.create(
+            product=self.product, name='Murukku Costing Recipe', batch_size=Decimal('1.00'), expected_yield_packets=200,
+        )
+        BOMLine.objects.create(bom=self.bom, raw_material=self.flour, quantity=Decimal('40.0000'), unit=self.kg)
+        BOMLine.objects.create(bom=self.bom, raw_material=self.oil, quantity=Decimal('10.0000'), unit=self.litre)
+        BOMLine.objects.create(bom=self.bom, raw_material=self.spice, quantity=Decimal('1.2000'), unit=self.kg)
+        BOMLine.objects.create(bom=self.bom, packaging_item=self.pouch, quantity=Decimal('200.0000'), unit=self.piece)
+        BOMLine.objects.create(bom=self.bom, packaging_item=self.carton, quantity=Decimal('10.0000'), unit=self.piece)
+
+        # Opening Stock:
+        # Flour: 100 kg @ ₹42.00
+        # Oil: 30 L @ ₹140.00
+        # Spice: 5 kg @ ₹200.00
+        # Pouch: 500 pcs @ ₹2.50
+        # Carton: 30 pcs @ ₹15.00
+        record_movement(self.flour, Decimal('100.0000'), MovementType.OPENING, 'OPENING-COST-01', user=self.user, unit_cost=Decimal('42.00'))
+        record_movement(self.oil, Decimal('30.0000'), MovementType.OPENING, 'OPENING-COST-01', user=self.user, unit_cost=Decimal('140.00'))
+        record_movement(self.spice, Decimal('5.0000'), MovementType.OPENING, 'OPENING-COST-01', user=self.user, unit_cost=Decimal('200.00'))
+        record_movement(self.pouch, Decimal('500.0000'), MovementType.OPENING, 'OPENING-COST-01', user=self.user, unit_cost=Decimal('2.50'))
+        record_movement(self.carton, Decimal('30.0000'), MovementType.OPENING, 'OPENING-COST-01', user=self.user, unit_cost=Decimal('15.00'))
+
+        # Purchase: 60 kg Flour @ ₹45.00 -> Weighted avg = (100*42 + 60*45) / 160 = 43.125
+        supplier = Supplier.objects.create(name='Mill Supplier', city='Trichy', state='Tamil Nadu', state_code='33')
+        po = PurchaseOrder.objects.create(po_number='PO-COST-001', supplier=supplier, created_by=self.user)
+        PurchaseOrderLine.objects.create(po=po, raw_material=self.flour, quantity=Decimal('60.0000'), unit=self.kg, unit_price=Decimal('45.00'))
+        receive_purchase_order(po, user=self.user)
+
+    def test_benchmark_run_costing_exact_decimal_values(self):
+        """
+        Benchmark run with exact Decimal values:
+        - flour unit cost 43.125, flour cost 1725.00
+        - oil 1470.00 (10.5 x 140.00)
+        - spice mix 240.00 (1.2 x 200.00)
+        - pouches 485.00 (194 x 2.50)
+        - cartons 135.00 (9 x 15)
+        - labour 1200.00, power 600.00
+        - total 5855.00
+        - cost per packet 31.14
+        - margin 18.86 (37.71%)
+        """
+        run = create_production_run(
+            product=self.product,
+            bom=self.bom,
+            batch_multiplier=Decimal('1.00'),
+            run_number='PR-COST-BENCH-01',
+            user=self.user,
+        )
+
+        # Issue materials: 40 kg flour, 10.5 L oil, 1.2 kg spice mix
+        issues_data = []
+        for item in run.items.filter(raw_material__isnull=False):
+            if item.raw_material.code == 'RM-FLOUR-COST':
+                issues_data.append({'item_id': item.id, 'actual_quantity': Decimal('40.0000')})
+            elif item.raw_material.code == 'RM-OIL-COST':
+                issues_data.append({'item_id': item.id, 'actual_quantity': Decimal('10.5000')})
+            elif item.raw_material.code == 'RM-SPICE-COST':
+                issues_data.append({'item_id': item.id, 'actual_quantity': Decimal('1.2000')})
+
+        issue_materials_for_run(run, issues_data=issues_data, user=self.user)
+
+        # Record output: 188 good pkts, 6 damaged pouches, 9 cartons used, labour 1200, power 600
+        record_production_output(
+            run=run,
+            actual_yield=188,
+            damaged_pouches=6,
+            cartons_used=9,
+            labour_cost=Decimal('1200.00'),
+            overhead_cost=Decimal('600.00'),
+            user=self.user,
+        )
+        run.refresh_from_db()
+
+        # Item-level assertions
+        flour_item = run.items.get(raw_material__code='RM-FLOUR-COST')
+        self.assertEqual(flour_item.unit_cost, Decimal('43.1250'))
+        self.assertEqual(flour_item.total_cost, Decimal('1725.00'))
+        self.assertEqual(flour_item.actual_cost, Decimal('1725.00'))
+
+        oil_item = run.items.get(raw_material__code='RM-OIL-COST')
+        self.assertEqual(oil_item.unit_cost, Decimal('140.0000'))
+        self.assertEqual(oil_item.total_cost, Decimal('1470.00'))
+
+        spice_item = run.items.get(raw_material__code='RM-SPICE-COST')
+        self.assertEqual(spice_item.unit_cost, Decimal('200.0000'))
+        self.assertEqual(spice_item.total_cost, Decimal('240.00'))
+
+        pouch_item = run.items.get(packaging_item__code='PM-POUCH-COST')
+        self.assertEqual(pouch_item.actual_quantity, Decimal('194.0000'))
+        self.assertEqual(pouch_item.unit_cost, Decimal('2.5000'))
+        self.assertEqual(pouch_item.total_cost, Decimal('485.00'))
+
+        carton_item = run.items.get(packaging_item__code='PM-CARTON-COST')
+        self.assertEqual(carton_item.actual_quantity, Decimal('9.0000'))
+        self.assertEqual(carton_item.unit_cost, Decimal('15.0000'))
+        self.assertEqual(carton_item.total_cost, Decimal('135.00'))
+
+        # Run-level assertions
+        self.assertEqual(run.total_raw_material_cost, Decimal('3435.00'))
+        self.assertEqual(run.total_packaging_cost, Decimal('620.00'))
+        self.assertEqual(run.labour_cost, Decimal('1200.00'))
+        self.assertEqual(run.overhead_cost, Decimal('600.00'))
+        self.assertEqual(run.total_production_cost, Decimal('5855.00'))
+        self.assertEqual(run.actual_cost_per_packet, Decimal('31.14'))
+        self.assertEqual(run.margin_per_packet, Decimal('18.86'))
+        self.assertEqual(run.margin_pct, Decimal('37.71'))
+
+    def test_later_purchase_does_not_change_completed_run_cost(self):
+        """
+        Verify that a subsequent purchase of raw materials at a completely different rate
+        does NOT alter the cost snapshot of an already completed production run.
+        """
+        run = create_production_run(
+            product=self.product,
+            bom=self.bom,
+            batch_multiplier=Decimal('1.00'),
+            run_number='PR-COST-FREEZE-01',
+            user=self.user,
+        )
+
+        issues_data = []
+        for item in run.items.filter(raw_material__isnull=False):
+            if item.raw_material.code == 'RM-FLOUR-COST':
+                issues_data.append({'item_id': item.id, 'actual_quantity': Decimal('40.0000')})
+            elif item.raw_material.code == 'RM-OIL-COST':
+                issues_data.append({'item_id': item.id, 'actual_quantity': Decimal('10.5000')})
+            elif item.raw_material.code == 'RM-SPICE-COST':
+                issues_data.append({'item_id': item.id, 'actual_quantity': Decimal('1.2000')})
+
+        issue_materials_for_run(run, issues_data=issues_data, user=self.user)
+        record_production_output(
+            run=run,
+            actual_yield=188,
+            damaged_pouches=6,
+            cartons_used=9,
+            labour_cost=Decimal('1200.00'),
+            overhead_cost=Decimal('600.00'),
+            user=self.user,
+        )
+        run.refresh_from_db()
+
+        # Initial benchmark verification
+        self.assertEqual(run.total_production_cost, Decimal('5855.00'))
+        self.assertEqual(run.actual_cost_per_packet, Decimal('31.14'))
+
+        # Later purchase of flour at a drastically different rate: 200 kg @ ₹70/kg
+        supplier = Supplier.objects.first()
+        po_later = PurchaseOrder.objects.create(po_number='PO-LATER-001', supplier=supplier, created_by=self.user)
+        PurchaseOrderLine.objects.create(po=po_later, raw_material=self.flour, quantity=Decimal('200.0000'), unit=self.kg, unit_price=Decimal('70.00'))
+        receive_purchase_order(po_later, user=self.user)
+
+        # The weighted average cost on the raw material has increased now
+        new_flour_avg = get_weighted_average_unit_cost(self.flour)
+        self.assertNotEqual(new_flour_avg, Decimal('43.1250'))
+
+        # But the completed run's saved snapshot must remain untouched
+        run.refresh_from_db()
+        flour_item = run.items.get(raw_material__code='RM-FLOUR-COST')
+        self.assertEqual(flour_item.unit_cost, Decimal('43.1250'))
+        self.assertEqual(flour_item.total_cost, Decimal('1725.00'))
+        self.assertEqual(run.total_raw_material_cost, Decimal('3435.00'))
+        self.assertEqual(run.total_production_cost, Decimal('5855.00'))
+        self.assertEqual(run.actual_cost_per_packet, Decimal('31.14'))
+        self.assertEqual(run.margin_per_packet, Decimal('18.86'))
+        self.assertEqual(run.margin_pct, Decimal('37.71'))
+
+    def test_recalculate_production_costs_management_command(self):
+        """
+        Verify the recalculate_production_costs management command recalculates costs
+        correctly using historical weighted average without altering ledger quantities.
+        """
+        run = create_production_run(
+            product=self.product,
+            bom=self.bom,
+            batch_multiplier=Decimal('1.00'),
+            run_number='PR-RECALC-001',
+            user=self.user,
+        )
+
+        issues_data = []
+        for item in run.items.filter(raw_material__isnull=False):
+            if item.raw_material.code == 'RM-FLOUR-COST':
+                issues_data.append({'item_id': item.id, 'actual_quantity': Decimal('40.0000')})
+            elif item.raw_material.code == 'RM-OIL-COST':
+                issues_data.append({'item_id': item.id, 'actual_quantity': Decimal('10.5000')})
+            elif item.raw_material.code == 'RM-SPICE-COST':
+                issues_data.append({'item_id': item.id, 'actual_quantity': Decimal('1.2000')})
+
+        issue_materials_for_run(run, issues_data=issues_data, user=self.user)
+        record_production_output(
+            run=run,
+            actual_yield=188,
+            damaged_pouches=6,
+            cartons_used=9,
+            labour_cost=Decimal('1200.00'),
+            overhead_cost=Decimal('600.00'),
+            user=self.user,
+        )
+
+        # Snapshot movement quantities before running command
+        movements_before = list(StockMovement.objects.values('id', 'quantity'))
+
+        # Execute management command
+        call_command('recalculate_production_costs', run='PR-RECALC-001')
+
+        # Check movement quantities are completely unchanged
+        movements_after = list(StockMovement.objects.values('id', 'quantity'))
+        self.assertEqual(movements_before, movements_after)
+
+        # Check run cost figures match benchmark
+        run.refresh_from_db()
+        self.assertEqual(run.total_production_cost, Decimal('5855.00'))
+        self.assertEqual(run.actual_cost_per_packet, Decimal('31.14'))
+        self.assertEqual(run.margin_per_packet, Decimal('18.86'))
+        self.assertEqual(run.margin_pct, Decimal('37.71'))
+
+    def test_product_costing_view_accessible_and_renders_margins(self):
+        """
+        Verify the Product Costing page is accessible and displays latest cost per packet and margin.
+        """
+        run = create_production_run(
+            product=self.product,
+            bom=self.bom,
+            batch_multiplier=Decimal('1.00'),
+            run_number='PR-VIEW-COST-01',
+            user=self.user,
+        )
+        issues_data = [
+            {'item_id': run.items.get(raw_material__code='RM-FLOUR-COST').id, 'actual_quantity': Decimal('40.0000')},
+            {'item_id': run.items.get(raw_material__code='RM-OIL-COST').id, 'actual_quantity': Decimal('10.5000')},
+            {'item_id': run.items.get(raw_material__code='RM-SPICE-COST').id, 'actual_quantity': Decimal('1.2000')},
+        ]
+        issue_materials_for_run(run, issues_data=issues_data, user=self.user)
+        record_production_output(
+            run=run,
+            actual_yield=188,
+            damaged_pouches=6,
+            cartons_used=9,
+            labour_cost=Decimal('1200.00'),
+            overhead_cost=Decimal('600.00'),
+            user=self.user,
+        )
+
+        client = Client()
+        client.login(username=self.user.username, password='pw')
+        response = client.get(reverse('production:product_costing'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '31.14')
+        self.assertContains(response, '18.86')
+        self.assertContains(response, '37.71%')
+        self.assertContains(response, self.product.name)

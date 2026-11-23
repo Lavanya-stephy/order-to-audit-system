@@ -256,7 +256,10 @@
                 {% endif %}
             </div>
             {% if run.actual_cost_per_packet > 0 %}
-            <div style="font-size:0.85rem; color:#15803d; font-weight:600; margin-top:0.25rem;">
+            <div style="font-size:0.85rem; color:var(--text-muted); margin-top:0.4rem;">
+                Selling Price: <strong>₹{{ run.product.selling_price }}</strong>
+            </div>
+            <div style="font-size:0.95rem; color:#15803d; font-weight:700; margin-top:0.25rem;">
                 Margin: ₹{{ run.margin_per_packet }} / pkt ({{ run.margin_pct }}%)
             </div>
             {% endif %}

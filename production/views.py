@@ -6,6 +6,7 @@ from django.urls import reverse
 
 from accounts.models import Role
 from accounts.permissions import role_required
+from masters.models import Product
 from .models import ProductionRun, ProductionRunItem, ProductionRunLog, DEFAULT_VARIANCE_TOLERANCE_PCT
 from .forms import (
     ProductionRunCreateForm,
@@ -212,3 +213,40 @@ def production_run_output_view(request, pk):
         'run': run,
         'form': form,
     })
+
+
+@login_required
+@role_required(PRODUCTION_VIEWERS)
+def product_costing_view(request):
+    """
+    Product Costing page: lists the latest run-level cost per packet,
+    selling price, and margin for each finished product.
+    """
+    products = Product.objects.filter(is_active=True).select_related('unit').order_by('name')
+    costing_data = []
+
+    for prod in products:
+        latest_run = (
+            prod.production_runs
+            .filter(status=ProductionRun.Status.COMPLETED)
+            .order_by('-completion_date', '-id')
+            .first()
+        )
+        costing_data.append({
+            'product': prod,
+            'latest_run': latest_run,
+            'cost_per_packet': latest_run.actual_cost_per_packet if latest_run else None,
+            'selling_price': prod.selling_price,
+            'margin_per_packet': latest_run.margin_per_packet if latest_run else None,
+            'margin_pct': latest_run.margin_pct if latest_run else None,
+            'raw_material_cost': latest_run.total_raw_material_cost if latest_run else None,
+            'packaging_cost': latest_run.total_packaging_cost if latest_run else None,
+            'labour_cost': latest_run.labour_cost if latest_run else None,
+            'overhead_cost': latest_run.overhead_cost if latest_run else None,
+            'total_production_cost': latest_run.total_production_cost if latest_run else None,
+        })
+
+    return render(request, 'production/product_costing.html', {
+        'costing_data': costing_data,
+    })
+

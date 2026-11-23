@@ -301,6 +301,32 @@ class Customer(models.Model):
         """Determines whether supply to this customer is inter-state (IGST) or intra-state (CGST+SGST)."""
         return self.state_code.strip() != factory_state_code.strip()
 
+    @property
+    def total_invoiced(self) -> Decimal:
+        """Total value of all posted invoices for this customer."""
+        if not hasattr(self, 'invoices'):
+            return Decimal('0.00')
+        res = self.invoices.filter(status='posted').aggregate(total=models.Sum('grand_total'))['total']
+        return res or Decimal('0.00')
+
+    @property
+    def total_paid(self) -> Decimal:
+        """Total payments received against posted invoices for this customer."""
+        if hasattr(self, 'payments'):
+            res = self.payments.filter(invoice__status='posted').aggregate(total=models.Sum('amount'))['total']
+            return res or Decimal('0.00')
+        return Decimal('0.00')
+
+    @property
+    def outstanding_balance(self) -> Decimal:
+        """Total unpaid balance across all posted invoices for this customer."""
+        if not hasattr(self, 'invoices'):
+            return Decimal('0.00')
+        total = Decimal('0.00')
+        for inv in self.invoices.filter(status='posted'):
+            total += inv.outstanding_balance
+        return total
+
 
 class Supplier(models.Model):
     name = models.CharField(max_length=150, help_text="Supplier business name")

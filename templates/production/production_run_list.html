@@ -10,13 +10,20 @@
                 Standard recipe batches, raw-material issues, output yields, and variance monitoring.
             </p>
         </div>
-        {% if user.role == 'admin' or user.role == 'production' or user.is_superuser %}
-        <a href="{% url 'production:production_run_create' %}"
-           style="display:inline-block; background:#0284c7; color:#fff; padding:0.5rem 1rem;
-                  border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
-            + Start Production Run
-        </a>
-        {% endif %}
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <a href="{% url 'production:product_costing' %}"
+               style="display:inline-block; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:0.5rem 0.9rem;
+                      border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                💰 Product Costing
+            </a>
+            {% if user.role == 'admin' or user.role == 'production' or user.is_superuser %}
+            <a href="{% url 'production:production_run_create' %}"
+               style="display:inline-block; background:#0284c7; color:#fff; padding:0.5rem 1rem;
+                      border-radius:4px; text-decoration:none; font-size:0.85rem; font-weight:600;">
+                + Start Production Run
+            </a>
+            {% endif %}
+        </div>
     </div>
 </div>
 

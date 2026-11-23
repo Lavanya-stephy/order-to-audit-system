@@ -39,10 +39,10 @@ def record_movement(
         unit = item.unit
 
     if unit_cost is None:
-        unit_cost = getattr(item, 'standard_cost', Decimal('0.00'))
+        unit_cost = getattr(item, 'standard_cost', Decimal('0.0000'))
     elif not isinstance(unit_cost, Decimal):
         unit_cost = Decimal(str(unit_cost))
-    unit_cost = unit_cost.quantize(Decimal('0.01'))
+    unit_cost = unit_cost.quantize(Decimal('0.0001'))
 
     movement = StockMovement(
         raw_material=rm,
@@ -91,6 +91,62 @@ def get_item_current_stock(item: InventoryItem, at_date=None) -> Decimal:
     if at_date:
         qs = qs.filter(created_at__lte=at_date)
     return _sum_movement_quantities(qs)
+
+
+def get_weighted_average_unit_cost(
+    item: InventoryItem,
+    at_datetime=None,
+    before_movement_id: Optional[int] = None,
+    exclude_movement_ids: Optional[List[int]] = None,
+) -> Decimal:
+    """
+    Calculates the moving weighted average unit cost of stock on hand for an item
+    from the stock ledger movements.
+
+    Formula:
+      - Whenever positive stock is received (Opening, Purchase, Positive Adjustment, Return):
+          new_stock_value = current_stock_value + (qty * movement.unit_cost)
+          new_stock_qty   = current_stock_qty + qty
+          unit_cost       = new_stock_value / new_stock_qty
+      - Outward issues reduce stock at the prevailing weighted average unit cost.
+      - If stock drops to zero or negative, unit cost holds at last known rate.
+      - If no stock movements exist, falls back to item.standard_cost.
+    """
+    qs = StockMovement.objects.filter(get_item_filter(item))
+    if at_datetime:
+        qs = qs.filter(created_at__lte=at_datetime)
+    if before_movement_id:
+        qs = qs.filter(id__lt=before_movement_id)
+    if exclude_movement_ids:
+        qs = qs.exclude(id__in=exclude_movement_ids)
+    qs = qs.order_by('created_at', 'id')
+
+    current_qty = Decimal('0.0000')
+    current_val = Decimal('0.0000')
+    unit_cost = getattr(item, 'standard_cost', Decimal('0.0000'))
+
+    for m in qs:
+        qty = m.quantity
+        if qty > Decimal('0'):
+            # Inward movement (Opening stock, Purchase, etc.)
+            m_cost = m.unit_cost if m.unit_cost > Decimal('0') else unit_cost
+            new_qty = current_qty + qty
+            new_val = current_val + (qty * m_cost)
+            if new_qty > Decimal('0'):
+                unit_cost = new_val / new_qty
+            current_qty = new_qty
+            current_val = new_val
+        else:
+            # Outward movement (Production issue, Dispatch, etc.)
+            new_qty = current_qty + qty
+            if new_qty <= Decimal('0'):
+                current_qty = Decimal('0.0000')
+                current_val = Decimal('0.0000')
+            else:
+                current_qty = new_qty
+                current_val = current_qty * unit_cost
+
+    return unit_cost
 
 
 def get_all_inventory_items() -> List[Dict[str, Any]]:

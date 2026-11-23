@@ -190,3 +190,28 @@ Following Section 6 of `PROBLEM.md`, development will be executed in staged phas
   - Django provides an enterprise-grade ORM, atomic transactions (`transaction.atomic()`), built-in role/permission handling, and admin interfaces that accelerate development while ensuring relational integrity.
 - **Database:** SQLite for rapid zero-dependency local development and testing; instantly switchable to PostgreSQL via environment variables (`POSTGRES_DB` or `DATABASE_URL`) without modifying code.
 - **Containerization:** Multi-stage `Dockerfile` and `docker-compose.yml` for unified one-command local and evaluation setup.
+
+---
+
+## 6. Production Costing & Valuation (Weighted Average Method)
+
+### 1. Costing Method: Moving Weighted Average Cost (WAC)
+- **Calculation:** The unit cost of each raw material and packaging item is the moving weighted average cost of stock on hand at the time of issue:
+  $$\text{Weighted Average Unit Cost} = \frac{\text{Current Stock Value} + \text{Inward Receipt Value}}{\text{Current Stock Quantity} + \text{Inward Receipt Quantity}}$$
+- **Snapshot Rule:** When a production run is completed, a permanent cost snapshot (`unit_cost` and `total_cost`) is frozen on each `ProductionRunItem`. Future material purchases at higher or lower rates never retroactively alter the cost of an already completed production run.
+- **Absorbed Packaging Loss:** Packaging cost includes all pouches consumed—both good packets produced and damaged pouches (e.g., $188 + 6 = 194$ pouches). Damaged pouches are treated as an absorbed manufacturing loss reflected in the cost of good packets.
+
+### 2. Overhead Allocation Rule
+- Direct labour (e.g., ₹1,200.00) and power/gas (e.g., ₹600.00) entered for a run are charged **entirely** to the batch of product produced in that run.
+- **Total Run Cost Formula:**
+  $$\text{Total Run Cost} = \text{Raw Material Cost} + \text{Packaging Cost} + \text{Direct Labour} + \text{Power / Gas Overheads}$$
+- **Cost per Good Packet:**
+  $$\text{Cost per Packet} = \frac{\text{Total Run Cost}}{\text{Actual Good Packets Produced}}$$
+- **Margin:**
+  $$\text{Margin per Packet} = \text{Selling Price} - \text{Cost per Packet}$$
+  $$\text{Margin \%} = \frac{\text{Selling Price} - \text{Cost per Packet}}{\text{Selling Price}} \times 100$$
+
+### 3. Why Weighted Average Cost?
+- **Fungible Bulk Ingredients:** In snack food manufacturing, bulk staples like flour, oil, and spices are stored in shared bins and tanks. Tracking individual bags or lots (FIFO/LIFO lot tracking) is practically impossible on a small factory floor where raw materials mix seamlessly.
+- **Price Smoothing:** Commodity ingredient prices fluctuate constantly. Moving weighted average naturally blends opening inventory and recent purchase prices, preventing artificial margin spikes between consecutive batches.
+- **Accounting & Audit Standards:** Weighted average cost (WAC) is recognized under Indian Accounting Standards (Ind AS 2 / AS 2) and tax guidelines as an accurate, compliant method for inventory valuation and Cost of Goods Sold (COGS).
