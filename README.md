@@ -67,8 +67,11 @@ We chose **Python 3.11+ / Django 5.x** paired with **SQLite** (switchable to **P
    # Creates standard users for all roles
    python manage.py create_test_users
 
-   # Loads the complete Section 5 benchmark masters & opening stock
+   # Load the benchmark master data and opening stock (required)
    python manage.py seed_benchmark
+
+   # (Optional) Load the completed section 5 scenario, so reports and the dashboard already have data
+   python manage.py seed_demo_scenario
    ```
 
 6. **Run all automated tests:**
@@ -85,31 +88,26 @@ We chose **Python 3.11+ / Django 5.x** paired with **SQLite** (switchable to **P
 
 ---
 
-### Option B: Docker Compose
+### Option B: Docker Compose (Fully Self-Contained)
 
-Run the entire system in an isolated container:
+ **Clone the repository:**
+   ```bash
+   git clone <repo-url>
+   cd order-to-audit-system
+   ```
+
+**Run a single command to build and launch the entire application:**
 
 ```bash
-# Build and launch application container
 docker compose up --build
-
-# Run in detached mode (background)
-docker compose up -d
-
-# Run migrations and seed benchmark inside container
-docker compose exec web python manage.py migrate
-docker compose exec web python manage.py seed_benchmark
 ```
 
-To switch to PostgreSQL in Docker:
-1. Uncomment the PostgreSQL service and environment variables in `docker-compose.yml`.
-2. Re-run `docker compose up --build`.
+* **Application URL:** [http://localhost:8000](http://localhost:8000) (or [http://127.0.0.1:8000](http://127.0.0.1:8000))
+* **No Other Commands Needed:** On container startup, the system automatically runs database migrations, seeds the complete Section 5 benchmark master data, users, and opening stock, collects static files, and launches the web server. The seed script is completely idempotent, so restarting the container is safe and will never duplicate stock movements.
 
----
+#### Test Logins
 
-### Role-Based Test Credentials
-
-All accounts are created with default password `pass1234` (or as specified below):
+All test accounts are pre-seeded and ready for immediate login:
 
 | Role | Username | Password | Default Portal Endpoint | Operational Scope |
 | :--- | :--- | :--- | :--- | :--- |
@@ -118,6 +116,11 @@ All accounts are created with default password `pass1234` (or as specified below
 | **Production Supervisor** | `production` | `production123` / `pass1234` | `/production/` | Recipe BOM management, raw material issuing, output logging, batch cost analysis |
 | **Accountant / Auditor** | `accountant` | `accountant123` / `pass1234` | `/reports/` | **Read-Only:** Monthly Reports Hub, Sales/Purchase Registers, GST summaries, Ageing, Stock Ledgers (CSV/PDF) |
 | **Factory Owner** | `owner` | `owner123` / `pass1234` | `/dashboard/` | Executive Pulse: today's order value, stock valuation, variance alert badges, unit costs, outstanding dues |
+
+> **Optional PostgreSQL:** SQLite is the default database engine so no extra service or configuration is required. To run with a dedicated PostgreSQL container instead, use the optional compose file:
+> ```bash
+> docker compose -f docker-compose.yml -f docker-compose.postgres.yml up --build
+> ```
 
 ---
 

@@ -1,0 +1,34 @@
+# Virtual environments
+.venv
+.venv/
+venv
+venv/
+env
+env/
+ENV
+ENV/
+
+# Database files
+db.sqlite3
+db.sqlite3-journal
+*.sqlite3
+
+# Git files
+.git
+.git/
+.gitignore
+
+# Python cache files
+__pycache__
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local IDE & temp files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store

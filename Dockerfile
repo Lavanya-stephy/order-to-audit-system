@@ -16,11 +16,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy project files
+# Copy entrypoint script to /usr/local/bin to prevent host mount overwrites
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
+
+# Copy project files (including bundled DejaVuSans font and templates)
 COPY . /app/
 
-# Expose port
+# Ensure in-app copy of entrypoint also has execution permissions and unix line endings
+RUN if [ -f /app/entrypoint.sh ]; then sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh; fi
+
+# Pre-collect static files into the image at build time
+RUN python manage.py collectstatic --noinput
+
+# Expose application port
 EXPOSE 8000
 
-# Default command to run migrations and start server
+# Set entrypoint and default command
+ENTRYPOINT ["/bin/sh", "/usr/local/bin/entrypoint.sh"]
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
