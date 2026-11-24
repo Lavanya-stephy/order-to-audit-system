@@ -64,15 +64,19 @@ We chose **Python 3.11+ / Django 5.x** paired with **SQLite** (switchable to **P
 
 5. **Seed standard users and master data:**
    ```bash
-   # Creates standard users for all roles
+   # 5.1 Creates standard users for all roles
    python manage.py create_test_users
 
-   # Load the benchmark master data and opening stock (required)
+   # 5.2 Load the benchmark master data and opening stock (required)
    python manage.py seed_benchmark
 
-   # (Optional) Load the completed section 5 scenario, so reports and the dashboard already have data
+   # 5.3 (Optional) Load the completed section 5 scenario, so reports and the dashboard already have data
    python manage.py seed_demo_scenario
    ```
+   **Two ways to use the demo data**
+
+- **Run the benchmark yourself:** run only step 5.2. You start with opening stock and perform the nine steps from the problem statement.
+- **See the finished results:** also run step 5.3. It creates the purchase, production run, orders, invoice, dispatch and payment, and refuses to run if transactions already exist.
 
 6. **Run all automated tests:**
    ```bash
