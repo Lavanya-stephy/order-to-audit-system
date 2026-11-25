@@ -22,14 +22,39 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get(
-    'SECRET_KEY',
-    'django-insecure-l7+6)k84ms(-ds&hw*1$ugy&7dujlryv73lele#jfdhypbtlc&'
+    'DJANGO_SECRET_KEY',
+    os.environ.get(
+        'SECRET_KEY',
+        'django-insecure-l7+6)k84ms(-ds&hw*1$ugy&7dujlryv73lele#jfdhypbtlc&'
+    )
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
+DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',') if os.environ.get('ALLOWED_HOSTS') else ['*']
+# Host and CSRF settings
+allowed_hosts_env = os.environ.get('ALLOWED_HOSTS')
+if allowed_hosts_env:
+    ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_env.split(',') if h.strip()]
+else:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', 'testserver']
+
+render_hostname = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if render_hostname and render_hostname not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(render_hostname)
+
+csrf_env = os.environ.get('CSRF_TRUSTED_ORIGINS')
+if csrf_env:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in csrf_env.split(',') if o.strip()]
+else:
+    CSRF_TRUSTED_ORIGINS = []
+
+if render_hostname:
+    render_origin = f"https://{render_hostname}"
+    if render_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(render_origin)
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
 # Application definition
@@ -54,6 +79,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -97,10 +123,17 @@ if os.environ.get('POSTGRES_DB'):
         }
     }
 else:
+    sqlite_path = os.environ.get('SQLITE_PATH')
+    if sqlite_path:
+        db_path = Path(sqlite_path)
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        db_path = BASE_DIR / 'db.sqlite3'
+
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+            'NAME': db_path,
         }
     }
 
@@ -153,6 +186,16 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+WHITENOISE_MANIFEST_STRICT = False
 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'

@@ -32,6 +32,11 @@ echo "=================================================="
 echo "🚀 Initializing Order-to-Audit Manufacturing System"
 echo "=================================================="
 
+# Ensure directory for SQLite database exists and is writable
+if [ -n "$SQLITE_PATH" ]; then
+    mkdir -p "$(dirname "$SQLITE_PATH")"
+fi
+
 # 1. Apply database migrations
 echo "==> [1/3] Running database migrations..."
 python manage.py migrate --noinput
@@ -44,7 +49,21 @@ python manage.py seed_benchmark
 echo "==> [3/3] Collecting static files..."
 python manage.py collectstatic --noinput
 
-# 4. Execute container CMD (default: python manage.py runserver 0.0.0.0:8000)
-echo "==> Starting web application on http://0.0.0.0:8000"
+# 4. Resolve port and configure server command
+PORT="${PORT:-8000}"
+
+echo "==> Starting web application on port ${PORT}..."
 echo "=================================================="
+
+if [ $# -eq 0 ]; then
+    set -- gunicorn config.wsgi:application --bind "0.0.0.0:${PORT}" --workers 2 --threads 4
+elif [ "$1" = "gunicorn" ]; then
+    case "$*" in
+        *--bind*) ;;
+        *) set -- "$@" --bind "0.0.0.0:${PORT}" ;;
+    esac
+elif [ "$1" = "python" ] && [ "$2" = "manage.py" ] && [ "$3" = "runserver" ]; then
+    set -- gunicorn config.wsgi:application --bind "0.0.0.0:${PORT}" --workers 2 --threads 4
+fi
+
 exec "$@"

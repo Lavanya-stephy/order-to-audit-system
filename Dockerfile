@@ -6,7 +6,7 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (build-essential and libpq-dev for psycopg2 if postgres is used)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
@@ -29,9 +29,12 @@ RUN if [ -f /app/entrypoint.sh ]; then sed -i 's/\r$//' /app/entrypoint.sh && ch
 # Pre-collect static files into the image at build time
 RUN python manage.py collectstatic --noinput
 
-# Expose application port
+# Ensure data directory exists and writable permissions for SQLite
+RUN mkdir -p /app/data && chmod -R 777 /app
+
+# Expose default application port
 EXPOSE 8000
 
-# Set entrypoint and default command
+# Set entrypoint and default command (gunicorn on 0.0.0.0:$PORT)
 ENTRYPOINT ["/bin/sh", "/usr/local/bin/entrypoint.sh"]
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["gunicorn", "config.wsgi:application", "--workers", "2", "--threads", "4"]

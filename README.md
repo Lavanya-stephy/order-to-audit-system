@@ -109,6 +109,14 @@ docker compose up --build
 * **Application URL:** [http://localhost:8000](http://localhost:8000) (or [http://127.0.0.1:8000](http://127.0.0.1:8000))
 * **No Other Commands Needed:** On container startup, the system automatically runs database migrations, seeds the complete Section 5 benchmark master data, users, and opening stock, collects static files, and launches the web server. The seed script is completely idempotent, so restarting the container is safe and will never duplicate stock movements.
 
+### Deployerd in Render:
+
+The application is fully prepared for deployment as a Docker Web Service on [Render](https://render.com) using SQLite.
+
+**Live demo**: https://order-to-audit-system-bkqe.onrender.com
+
+**Note**: this runs on a free plan. After 15 minutes idle it sleeps and the first load takes about a minute. On each wake-up the demo resets to the benchmark seed data.
+
 #### Test Logins
 
 All test accounts are pre-seeded and ready for immediate login:
@@ -240,3 +248,7 @@ python manage.py test --verbosity=1
 * `invoices/tests.py`: GST calculations, credit-note cancellations, payment logging, and 4-bucket ageing reports.
 * `inventory/tests.py`: Append-only `StockMovement` ledger verification, moving weighted average cost computation.
 * `orders/tests.py`: Sales order submission, stock shortage warnings, admin approval flow.
+
+---
+
+
