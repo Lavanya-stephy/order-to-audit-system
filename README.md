@@ -102,6 +102,8 @@ We chose **Python 3.11+ / Django 5.x** paired with **SQLite** (switchable to **P
 
 **Run a single command to build and launch the entire application:**
 
+Open Docker Desktop and wait until the status displays **"Engine running"** before proceeding.
+
 ```bash
 docker compose up --build
 ```
