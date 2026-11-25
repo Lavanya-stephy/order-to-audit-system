@@ -6,6 +6,7 @@ from django.urls import reverse
 
 from accounts.models import Role
 from accounts.permissions import role_required
+from inventory.services import get_weighted_average_unit_cost
 from masters.models import Product
 from .models import ProductionRun, ProductionRunItem, ProductionRunLog, DEFAULT_VARIANCE_TOLERANCE_PCT
 from .forms import (
@@ -136,16 +137,17 @@ def production_run_issue_view(request, pk):
             val = request.POST.get(qty_field)
             cost_val = request.POST.get(cost_field)
             if val is not None and str(val).strip() != '':
+                raw_cost = cost_val if (cost_val and str(cost_val).strip() != '') else item.unit_cost
                 form = ProductionIssueItemForm({
                     'item_id': item.id,
-                    'actual_quantity': Decimal(str(val).strip()),
-                    'unit_cost': Decimal(str(cost_val).strip()) if (cost_val and str(cost_val).strip() != '') else item.unit_cost,
+                    'actual_quantity': str(val).strip(),
+                    'unit_cost': str(raw_cost).strip() if raw_cost is not None else None,
                 })
                 if form.is_valid():
                     issues_data.append({
                         'item_id': item.id,
-                        'actual_quantity': Decimal(str(form.cleaned_data['actual_quantity'])),
-                        'unit_cost': Decimal(str(form.cleaned_data['unit_cost'])) if form.cleaned_data.get('unit_cost') is not None else item.unit_cost,
+                        'actual_quantity': form.cleaned_data['actual_quantity'],
+                        'unit_cost': form.cleaned_data['unit_cost'] if form.cleaned_data.get('unit_cost') is not None else item.unit_cost,
                     })
                 else:
                     has_errors = True
@@ -158,6 +160,13 @@ def production_run_issue_view(request, pk):
                 return redirect('production:production_run_detail', pk=run.pk)
             except Exception as e:
                 messages.error(request, f"Error issuing materials: {str(e)}")
+    else:
+        # Pre-fill unit_cost with weighted average if currently unset or matching standard
+        for item in raw_items:
+            if item.unit_cost <= Decimal('0') or item.unit_cost == getattr(item.raw_material, 'standard_cost', Decimal('0')):
+                avg_cost = get_weighted_average_unit_cost(item.raw_material)
+                if avg_cost > Decimal('0'):
+                    item.unit_cost = avg_cost
 
     return render(request, 'production/production_run_issue.html', {
         'run': run,

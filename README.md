@@ -115,11 +115,11 @@ All test accounts are pre-seeded and ready for immediate login:
 
 | Role | Username | Password | Default Portal Endpoint | Operational Scope |
 | :--- | :--- | :--- | :--- | :--- |
-| **Salesman** | `salesman` / `salesman_a` | `salesman123` / `pass1234` | `/orders/` | Mobile-optimized order booking, customer catalog, stock availability checks |
-| **Factory Admin** | `admin` | `admin123` / `pass1234` | `/admin-dashboard/` | Order approvals, GST invoice generation, dispatch execution, purchase receiving, payments |
-| **Production Supervisor** | `production` | `production123` / `pass1234` | `/production/` | Recipe BOM management, raw material issuing, output logging, batch cost analysis |
-| **Accountant / Auditor** | `accountant` | `accountant123` / `pass1234` | `/reports/` | **Read-Only:** Monthly Reports Hub, Sales/Purchase Registers, GST summaries, Ageing, Stock Ledgers (CSV/PDF) |
-| **Factory Owner** | `owner` | `owner123` / `pass1234` | `/dashboard/` | Executive Pulse: today's order value, stock valuation, variance alert badges, unit costs, outstanding dues |
+| **Salesman** | `salesman` / `salesman_a`/ `salesman_b` | `salesman123` | `/orders/` | Mobile-optimized order booking, customer catalog, stock availability checks |
+| **Factory Admin** | `admin` | `admin123` | `/admin-dashboard/` | Order approvals, GST invoice generation, dispatch execution, purchase receiving, payments |
+| **Production Supervisor** | `production` | `production123` | `/production/` | Recipe BOM management, raw material issuing, output logging, batch cost analysis |
+| **Accountant / Auditor** | `accountant` | `accountant123` | `/reports/` | **Read-Only:** Monthly Reports Hub, Sales/Purchase Registers, GST summaries, Ageing, Stock Ledgers (CSV/PDF) |
+| **Factory Owner** | `owner` | `owner123` | `/dashboard/` | Executive Pulse: today's order value, stock valuation, variance alert badges, unit costs, outstanding dues |
 
 > **Optional PostgreSQL:** SQLite is the default database engine so no extra service or configuration is required. To run with a dedicated PostgreSQL container instead, use the optional compose file:
 > ```bash

@@ -208,12 +208,18 @@
                                             </a>
                                         {% endif %}
                                         {% if order.status == 'submitted' %}
-                                            <form action="{% url 'orders:admin_order_approve' pk=order.pk %}" method="post" style="display:inline;">
-                                                {% csrf_token %}
-                                                <button type="submit" class="btn-action btn-approve" onclick="return confirm('Approve order {{ order.order_number }}?');">
+                                            {% if cov.is_fully_covered %}
+                                                <form action="{% url 'orders:admin_order_approve' pk=order.pk %}" method="post" style="display:inline;">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn-action btn-approve" onclick="return confirm('Approve order {{ order.order_number }}?');">
+                                                        Approve
+                                                    </button>
+                                                </form>
+                                            {% else %}
+                                                <button type="button" class="btn-action" style="background:#cbd5e1; color:#64748b; cursor:not-allowed; border:none;" disabled title="Cannot approve: Insufficient stock (Shortage: {{ cov.total_shortage|floatformat:0 }} pkts)">
                                                     Approve
                                                 </button>
-                                            </form>
+                                            {% endif %}
                                             <form action="{% url 'orders:admin_order_reject' pk=order.pk %}" method="post" style="display:inline;">
                                                 {% csrf_token %}
                                                 <button type="submit" class="btn-action btn-reject" onclick="return confirm('Reject order {{ order.order_number }}?');">

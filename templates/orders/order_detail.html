@@ -390,17 +390,35 @@
 
         <div style="display:flex; flex-wrap:wrap; gap:1rem; align-items:flex-end;">
             <!-- Approve Form -->
-            <form action="{% url 'orders:admin_order_approve' pk=order.pk %}" method="post" style="flex:1; min-width:260px;">
-                {% csrf_token %}
-                <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:0.3rem;">Approval Remarks (Optional)</label>
-                <div style="display:flex; gap:0.5rem;">
-                    <input type="text" name="approval_notes" placeholder="e.g. Stock verified, ready for invoicing"
-                           style="flex:1; padding:0.5rem; border:1px solid var(--border); border-radius:4px; font-size:0.85rem;">
-                    <button type="submit" class="btn-action-primary" onclick="return confirm('Confirm approval for order {{ order.order_number }}?');">
-                        ✅ Approve Order
-                    </button>
+            {% if coverage.is_fully_covered %}
+                <form action="{% url 'orders:admin_order_approve' pk=order.pk %}" method="post" style="flex:1; min-width:260px;">
+                    {% csrf_token %}
+                    <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:0.3rem;">Approval Remarks (Optional)</label>
+                    <div style="display:flex; gap:0.5rem;">
+                        <input type="text" name="approval_notes" placeholder="e.g. Stock verified, ready for invoicing"
+                               style="flex:1; padding:0.5rem; border:1px solid var(--border); border-radius:4px; font-size:0.85rem;">
+                        <button type="submit" class="btn-action-primary" onclick="return confirm('Confirm approval for order {{ order.order_number }}?');">
+                            ✅ Approve Order
+                        </button>
+                    </div>
+                </form>
+            {% else %}
+                <div style="flex:1; min-width:260px;">
+                    <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:0.3rem; color:#dc2626;">
+                        ⚠️ Approval Blocked: Insufficient Stock
+                    </label>
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <button type="button" class="btn-action-primary" disabled
+                               style="background:#cbd5e1; color:#64748b; border:none; cursor:not-allowed;"
+                               title="Cannot approve: Insufficient stock (Shortage: {{ coverage.total_shortage|floatformat:0 }} pkts)">
+                            🚫 Approval Blocked
+                        </button>
+                        <span style="font-size:0.82rem; color:#dc2626; font-weight:600;">
+                            Shortage of {{ coverage.total_shortage|floatformat:0 }} packets. Replenish stock via production to approve.
+                        </span>
+                    </div>
                 </div>
-            </form>
+            {% endif %}
 
             <!-- Edit Button -->
             <div>

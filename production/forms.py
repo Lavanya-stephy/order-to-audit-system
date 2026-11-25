@@ -1,9 +1,23 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from django import forms
 from django.utils import timezone
 
 from masters.models import Product, BillOfMaterial
 from .models import ProductionRun, ProductionRunItem, DEFAULT_VARIANCE_TOLERANCE_PCT
+
+
+class RoundedDecimalField(forms.DecimalField):
+    """
+    DecimalField that safely handles inputs with higher precision by quantizing
+    to decimal_places using ROUND_HALF_UP before validation, avoiding spurious
+    'Ensure that there are no more than X decimal places' validation errors.
+    """
+    def to_python(self, value):
+        val = super().to_python(value)
+        if val is not None and self.decimal_places is not None:
+            quant_exp = Decimal('10') ** -self.decimal_places
+            return val.quantize(quant_exp, rounding=ROUND_HALF_UP)
+        return val
 
 
 class ProductionRunCreateForm(forms.ModelForm):
@@ -75,30 +89,30 @@ class ProductionRunEditForm(forms.ModelForm):
 
 class ProductionIssueItemForm(forms.Form):
     item_id = forms.IntegerField(widget=forms.HiddenInput())
-    actual_quantity = forms.DecimalField(
+    actual_quantity = RoundedDecimalField(
         max_digits=12,
         decimal_places=4,
         min_value=Decimal('0.0001'),
         widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.0001'})
     )
-    unit_cost = forms.DecimalField(
-        max_digits=10,
-        decimal_places=2,
+    unit_cost = RoundedDecimalField(
+        max_digits=14,
+        decimal_places=4,
         min_value=Decimal('0.00'),
         required=False,
-        widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'})
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.0001'})
     )
 
     def clean_actual_quantity(self):
         val = self.cleaned_data.get('actual_quantity')
         if val is not None:
-            return Decimal(str(val)).quantize(Decimal('0.0001'))
+            return Decimal(str(val)).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
         return val
 
     def clean_unit_cost(self):
         val = self.cleaned_data.get('unit_cost')
         if val is not None:
-            return Decimal(str(val)).quantize(Decimal('0.01'))
+            return Decimal(str(val)).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
         return val
 
 
@@ -123,8 +137,8 @@ class ProductionOutputForm(forms.Form):
         help_text="Number of outer shipping boxes packed",
         widget=forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'placeholder': 'e.g. 9'})
     )
-    labour_cost = forms.DecimalField(
-        max_digits=10,
+    labour_cost = RoundedDecimalField(
+        max_digits=12,
         decimal_places=2,
         min_value=Decimal('0.00'),
         initial=Decimal('0.00'),
@@ -132,8 +146,8 @@ class ProductionOutputForm(forms.Form):
         required=False,
         widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'})
     )
-    overhead_cost = forms.DecimalField(
-        max_digits=10,
+    overhead_cost = RoundedDecimalField(
+        max_digits=12,
         decimal_places=2,
         min_value=Decimal('0.00'),
         initial=Decimal('0.00'),
@@ -141,6 +155,18 @@ class ProductionOutputForm(forms.Form):
         required=False,
         widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'})
     )
+
+    def clean_labour_cost(self):
+        val = self.cleaned_data.get('labour_cost')
+        if val is not None:
+            return Decimal(str(val)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        return Decimal('0.00')
+
+    def clean_overhead_cost(self):
+        val = self.cleaned_data.get('overhead_cost')
+        if val is not None:
+            return Decimal(str(val)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        return Decimal('0.00')
     completion_date = forms.DateField(
         label="Completion Date",
         initial=timezone.now,

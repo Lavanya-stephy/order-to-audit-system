@@ -55,28 +55,6 @@
         margin-bottom: 1.25rem;
         font-size: 0.875rem;
     }
-    .demo-roles-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.8rem;
-        margin-top: 0.75rem;
-    }
-    .demo-roles-table th, .demo-roles-table td {
-        border: 1px solid var(--border);
-        padding: 0.4rem 0.6rem;
-        text-align: left;
-    }
-    .demo-roles-table th {
-        background-color: #f1f5f9;
-        font-weight: 600;
-    }
-    .demo-badge {
-        font-size: 0.72rem;
-        padding: 0.15rem 0.4rem;
-        border-radius: 4px;
-        background: #e2e8f0;
-        font-family: monospace;
-    }
 </style>
 {% endblock %}
 
@@ -112,60 +90,6 @@
 
             <button type="submit" class="btn-primary">Sign In</button>
         </form>
-
-        <div style="margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem;">
-            <p style="font-size:0.8rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">
-                Standard Role Credentials:
-            </p>
-            <table class="demo-roles-table">
-                <thead>
-                    <tr>
-                        <th>Role</th>
-                        <th>Username</th>
-                        <th>Password</th>
-                        <th>Default Role Access</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><strong>Salesman A</strong></td>
-                        <td><span class="demo-badge">salesman_a</span></td>
-                        <td><code>salesman123</code></td>
-                        <td>Mobile field order taking (Retailer A)</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Salesman B</strong></td>
-                        <td><span class="demo-badge">salesman_b</span></td>
-                        <td><code>salesman123</code></td>
-                        <td>Mobile field order taking (Distributor B)</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Factory Admin</strong></td>
-                        <td><span class="demo-badge">admin</span></td>
-                        <td><code>admin123</code></td>
-                        <td>GST billing, approval, dispatch</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Production</strong></td>
-                        <td><span class="demo-badge">production</span></td>
-                        <td><code>production123</code></td>
-                        <td>BOM, issues, production runs</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Accountant</strong></td>
-                        <td><span class="demo-badge">accountant</span></td>
-                        <td><code>accountant123</code></td>
-                        <td>Read-only monthly reports & audit</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Owner</strong></td>
-                        <td><span class="demo-badge">owner</span></td>
-                        <td><code>owner123</code></td>
-                        <td>Executive summary dashboard</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
     </div>
 </div>
 {% endblock %}

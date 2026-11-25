@@ -176,9 +176,26 @@ def admin_update_order(
 def approve_sales_order(order: SalesOrder, admin_user, notes: str = '') -> SalesOrder:
     """
     Approves a submitted sales order.
+    Enforces that finished-goods stock is sufficient. If stock is insufficient,
+    raises ValidationError detailing available stock, requested quantity, and exact shortage,
+    keeping the order in Pending (submitted) status.
     """
     if order.status not in [OrderStatus.SUBMITTED, OrderStatus.REJECTED]:
         raise ValidationError(f"Cannot approve an order with status '{order.get_status_display()}'.")
+
+    coverage = order.check_stock_coverage()
+    if not coverage['is_fully_covered']:
+        shortage_items = []
+        for line_info in coverage['lines']:
+            if not line_info['is_covered']:
+                shortage_items.append(
+                    f"{line_info['product'].name}: available stock is {line_info['available_stock']:.0f} packets, "
+                    f"requested {line_info['requested_qty']:.0f} packets (shortage of {line_info['shortage']:.0f} packets)"
+                )
+        shortage_str = "; ".join(shortage_items)
+        raise ValidationError(
+            f"Cannot approve order {order.order_number}: Insufficient finished-goods stock. {shortage_str}."
+        )
 
     order.status = OrderStatus.APPROVED
     order.approved_by = admin_user
@@ -187,8 +204,7 @@ def approve_sales_order(order: SalesOrder, admin_user, notes: str = '') -> Sales
         order.notes = f"{order.notes}\n[Approval Notes]: {notes}".strip()
     order.save()
 
-    coverage = order.check_stock_coverage()
-    coverage_status = "Stock fully covers order." if coverage['is_fully_covered'] else f"Stock shortage flagged: {coverage['total_shortage']} packets short."
+    coverage_status = "Stock fully covers order."
 
     log_order_action(
         order=order,

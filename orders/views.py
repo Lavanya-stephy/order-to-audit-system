@@ -2,7 +2,7 @@ from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.http import JsonResponse, HttpResponseForbidden
 from django.urls import reverse
 from django.utils import timezone
@@ -192,7 +192,7 @@ def order_detail_view(request, pk):
         'coverage': coverage,
         'can_edit': (request.user.role == Role.ADMIN or request.user.is_superuser) and order.status in [OrderStatus.SUBMITTED, OrderStatus.APPROVED],
         'can_approve_reject': (request.user.role == Role.ADMIN or request.user.is_superuser) and order.status == OrderStatus.SUBMITTED,
-        'can_generate_invoice': (request.user.role == Role.ADMIN or request.user.is_superuser) and order.status == OrderStatus.APPROVED,
+        'can_generate_invoice': (request.user.role == Role.ADMIN or request.user.is_superuser) and order.status == OrderStatus.APPROVED and coverage['is_fully_covered'],
     })
 
 
@@ -272,6 +272,11 @@ def admin_order_approve_view(request, pk):
         notes = request.POST.get('approval_notes', '').strip()
         approve_sales_order(order, admin_user=request.user, notes=notes)
         messages.success(request, f"Order '{order.order_number}' has been APPROVED.")
+    except (ValidationError, ValueError) as e:
+        msg = e.message if hasattr(e, 'message') else str(e)
+        if hasattr(e, 'message_dict'):
+            msg = "; ".join([f"{k}: {', '.join(v)}" for k, v in e.message_dict.items()])
+        messages.error(request, msg)
     except Exception as e:
         messages.error(request, f"Error approving order: {str(e)}")
 

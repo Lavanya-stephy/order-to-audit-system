@@ -451,6 +451,72 @@ class ProductionPermissionsTests(TestCase):
         self.assertEqual(closing_stock, Decimal("3.8"))
         self.assertEqual(closing_stock, Decimal("3.8000"))
 
+    def test_production_issue_with_multi_decimal_unit_cost_like_flour_43_125(self):
+        """
+        Verify that issuing materials with multi-decimal unit cost (such as Flour at weighted average
+        rate of 43.125 / 43.1250) succeeds without 'Ensure that there are no more than 2 decimal places'
+        validation error, both at the form level and via production_run_issue_view.
+        """
+        from production.forms import ProductionIssueItemForm
+
+        # 1. Direct form tests with 3, 4, and excess decimal places
+        for cost_input in ['43.125', '43.1250', '43.125000', 43.125, Decimal('43.125')]:
+            form = ProductionIssueItemForm({
+                'item_id': 99,
+                'actual_quantity': '40.0000',
+                'unit_cost': cost_input,
+            })
+            self.assertTrue(form.is_valid(), f"Failed for cost input: {cost_input} with errors: {form.errors}")
+            self.assertEqual(form.cleaned_data['unit_cost'], Decimal('43.1250'))
+            self.assertEqual(form.cleaned_data['actual_quantity'], Decimal('40.0000'))
+
+        # 2. End-to-end issue via view POST
+        self.client.login(username='prod', password=self.password)
+        run = create_production_run(
+            product=self.product,
+            bom=self.bom,
+            batch_multiplier=Decimal('1.00'),
+            run_number='PR-TEST-ISSUE-43125',
+            user=self.production,
+        )
+        flour_item = run.items.filter(raw_material=self.flour).first()
+        self.assertIsNotNone(flour_item)
+
+        issue_url = reverse('production:production_run_issue', kwargs={'pk': run.pk})
+
+        # Test GET on issue view: verifies step="0.0001" is present in HTML input
+        get_resp = self.client.get(issue_url)
+        self.assertEqual(get_resp.status_code, 200)
+        self.assertContains(get_resp, 'step="0.0001"')
+
+        post_data = {
+            f'qty_{flour_item.id}': '40.0000',
+            f'cost_{flour_item.id}': '43.125',
+        }
+        for other_item in run.items.filter(raw_material__isnull=False).exclude(id=flour_item.id):
+            post_data[f'qty_{other_item.id}'] = str(other_item.standard_quantity)
+            post_data[f'cost_{other_item.id}'] = str(other_item.unit_cost)
+
+        resp = self.client.post(issue_url, data=post_data, follow=True)
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, 'Ensure that there are no more than 2 decimal places')
+        messages_list = [str(m) for m in resp.context['messages']]
+        self.assertTrue(any(f"Successfully issued materials for {run.run_number}" in m for m in messages_list))
+
+        flour_item.refresh_from_db()
+        self.assertEqual(flour_item.unit_cost, Decimal('43.1250'))
+        self.assertEqual(flour_item.total_cost, Decimal('1725.00'))
+
+        # Verify ledger movement recorded with exact 43.1250 rate
+        mv = StockMovement.objects.filter(
+            raw_material=self.flour,
+            source_document=run.run_number,
+            movement_type=MovementType.PRODUCTION_ISSUE
+        ).first()
+        self.assertIsNotNone(mv)
+        self.assertEqual(mv.unit_cost, Decimal('43.1250'))
+        self.assertEqual(mv.quantity, Decimal('-40.0000'))
+
 
 class ProductionRunCostingTests(TestCase):
     """

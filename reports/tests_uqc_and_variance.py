@@ -404,6 +404,13 @@ class GSTHSNSummaryUQCTests(TestCase):
             name='HSN Customer', customer_type=CustomerType.RETAILER,
             city='Chennai', state='Tamil Nadu', state_code='33',
         )
+        record_movement(
+            item=self.product,
+            quantity=Decimal('200.00'),
+            movement_type=MovementType.PRODUCTION_OUTPUT,
+            source_document='PR-HSN-TEST',
+            user=self.admin,
+        )
         from orders.models import SalesOrder, SalesOrderLine, OrderStatus
         from invoices.services import generate_invoice
         order = SalesOrder.objects.create(

@@ -17,7 +17,7 @@ from django.utils import timezone
 
 from orders.models import SalesOrder, SalesOrderLog, OrderStatus
 from inventory.models import MovementType
-from inventory.services import record_movement
+from inventory.services import record_movement, get_item_current_stock
 from .models import Invoice, InvoiceLine, InvoiceStatus, Payment, PaymentMode, FACTORY_STATE_CODE
 
 
@@ -114,6 +114,11 @@ def generate_invoice(order: SalesOrder, user=None) -> Invoice:
         raise ValueError(
             f"Order {order.order_number} must be APPROVED to generate an invoice "
             f"(current status: {order.get_status_display()})."
+        )
+    coverage = order.check_stock_coverage()
+    if not coverage['is_fully_covered']:
+        raise ValueError(
+            f"Cannot generate invoice for order {order.order_number}: Insufficient finished-goods stock (shortage of {coverage['total_shortage']:.0f} packets)."
         )
     if hasattr(order, 'invoice') and order.invoice is not None:
         raise ValueError(
@@ -240,6 +245,17 @@ def dispatch_invoice(invoice: Invoice, user=None) -> Invoice:
         raise ValueError(f"Invoice {invoice.invoice_number} has already been dispatched.")
 
     order = invoice.order
+    if order.status == OrderStatus.SUBMITTED:
+        raise ValueError(f"Cannot dispatch invoice for pending order {order.order_number}.")
+
+    for inv_line in invoice.lines.select_related('product', 'unit').all():
+        available = get_item_current_stock(inv_line.product)
+        if available < inv_line.quantity:
+            shortage = inv_line.quantity - available
+            raise ValueError(
+                f"Cannot dispatch invoice {invoice.invoice_number}: Insufficient stock for {inv_line.product.name}. "
+                f"Available stock is {available:.0f} packets, required {inv_line.quantity:.0f} packets (shortage of {shortage:.0f} packets)."
+            )
 
     for inv_line in invoice.lines.select_related('product', 'unit').all():
         record_movement(

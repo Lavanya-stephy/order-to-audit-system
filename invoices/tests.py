@@ -80,6 +80,18 @@ class InvoiceTestBase(TestCase):
             gstin='29ABCDE1234F1Z5',
         )
 
+    def _ensure_stock(self, product=None, qty=Decimal('100.00')):
+        prod = product or self.product
+        current = get_item_current_stock(prod)
+        if current < qty:
+            record_movement(
+                item=prod,
+                quantity=qty - current,
+                movement_type=MovementType.PRODUCTION_OUTPUT,
+                source_document='PR-TEST-HELPER',
+                user=self.admin,
+            )
+
 
 # ---------------------------------------------------------------------------
 # 1. Intra-state invoice: CGST + SGST
@@ -89,6 +101,7 @@ class IntraStateInvoiceTests(InvoiceTestBase):
 
     def _approved_order(self, qty=Decimal('150.00')):
         """Create and approve a 150-pkt order for Retailer A."""
+        self._ensure_stock(self.product, qty)
         order = create_sales_order(
             salesman=self.salesman,
             customer=self.retailer_a,
@@ -229,7 +242,25 @@ class InterStateInvoiceTests(InvoiceTestBase):
         self.assertFalse(coverage['is_fully_covered'])
         self.assertEqual(coverage['total_shortage'], Decimal('32.00'))
 
-        # Admin can still approve and invoice even with shortage
+        # Approval and invoicing blocked while stock is insufficient
+        from django.core.exceptions import ValidationError
+        with self.assertRaises(ValidationError):
+            approve_sales_order(order_b, self.admin)
+
+        with self.assertRaises(ValueError):
+            generate_invoice(order_b, user=self.admin)
+
+        # Replenish stock through production: +50 pkts -> 138 pkts total
+        record_movement(
+            item=self.product,
+            quantity=Decimal('50.00'),
+            movement_type=MovementType.PRODUCTION_OUTPUT,
+            source_document='PR-REPLENISH-02',
+            user=self.admin,
+        )
+        self.assertEqual(get_item_current_stock(self.product), Decimal('138.00'))
+
+        # Now admin can approve and invoice
         approve_sales_order(order_b, self.admin)
         inv = generate_invoice(order_b, user=self.admin)
 
@@ -257,6 +288,7 @@ class InterStateInvoiceTests(InvoiceTestBase):
 class InvoiceCancellationTests(InvoiceTestBase):
 
     def _post_invoice(self):
+        self._ensure_stock(self.product, Decimal('50.00'))
         order = create_sales_order(
             salesman=self.salesman,
             customer=self.retailer_a,
@@ -320,6 +352,7 @@ class InvoiceCancellationTests(InvoiceTestBase):
 class InvoiceViewTests(InvoiceTestBase):
 
     def _approved_order(self):
+        self._ensure_stock(self.product, Decimal('30.00'))
         order = create_sales_order(
             salesman=self.salesman,
             customer=self.retailer_a,
@@ -394,6 +427,7 @@ class InvoiceViewTests(InvoiceTestBase):
     def test_pdf_generation_interstate_without_errors(self):
         """Tests that build_invoice_pdf for an inter-state invoice (IGST) builds without errors."""
         from invoices.pdf import build_invoice_pdf
+        self._ensure_stock(self.product, Decimal('120.00'))
         order_b = create_sales_order(
             salesman=self.salesman,
             customer=self.distributor_b,
@@ -442,6 +476,7 @@ class InvoiceViewTests(InvoiceTestBase):
 
 class InvoicePaymentAndAgeingTests(InvoiceTestBase):
     def _create_retailer_a_invoice(self, qty=Decimal('150.00')):
+        self._ensure_stock(self.product, qty)
         order = create_sales_order(
             salesman=self.salesman,
             customer=self.retailer_a,
@@ -545,6 +580,7 @@ class InvoicePaymentAndAgeingTests(InvoiceTestBase):
         inv_45d.save(update_fields=['invoice_date'])
 
         # Create an invoice for Distributor B with date 95 days in the past
+        self._ensure_stock(self.product, Decimal('100.00'))
         order_b = create_sales_order(
             salesman=self.salesman,
             customer=self.distributor_b,

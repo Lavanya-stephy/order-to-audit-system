@@ -277,6 +277,14 @@ class SalesOrderTests(TestCase):
             lines_data=[{'product': self.product, 'quantity': Decimal('150.00')}],
         )
 
+        # Provide sufficient stock for order
+        record_movement(
+            item=self.product,
+            quantity=Decimal('200.00'),
+            movement_type=MovementType.PRODUCTION_OUTPUT,
+            source_document='PR-TEST-APPROVE',
+        )
+
         admin_client = Client()
         admin_client.login(username='admin_user', password=self.password)
 
@@ -410,6 +418,7 @@ class SalesOrderTests(TestCase):
           - 'Current Stock in Ledger' (the stock quantity label)
         """
         order_a = self._make_order_a()
+
         admin_client = Client()
         admin_client.login(username='admin_user', password=self.password)
 
@@ -521,4 +530,149 @@ class SalesOrderTests(TestCase):
         content = res.content.decode()
         self.assertIn("Stock Shortage Flagged! Shortage of 32 packets", content)
         self.assertIn("32 pkts short!", content)
+
+    def test_order_approval_blocked_on_insufficient_stock_and_allowed_after_production(self):
+        """
+        Verify that when available stock is 88 packets and salesman requests 120 packets:
+        1. Shortage of 32 packets is displayed in order detail with available stock 88.
+        2. Frontend blocks/disables the approval action in both detail view and admin list.
+        3. Backend validation in approve_sales_order blocks approval, keeping order in Pending status.
+        4. Invoice generation is blocked for pending/insufficient orders, and no stock is deducted.
+        5. Once sufficient stock is replenished through production (e.g. +50 pkts -> 138 pkts >= 120),
+           admin is allowed to approve order, generate invoice, and dispatch normally.
+        """
+        from django.core.exceptions import ValidationError
+        from invoices.services import generate_invoice
+
+        # 1. Ensure finished-goods stock is 88 packets
+        record_movement(
+            item=self.product,
+            quantity=Decimal('88.00'),
+            movement_type=MovementType.PRODUCTION_OUTPUT,
+            source_document='PR-BENCHMARK-RUN-88',
+        )
+        self.assertEqual(get_item_current_stock(self.product), Decimal('88.00'))
+
+        # Salesman B orders 120 packets
+        order = create_sales_order(
+            salesman=self.salesman_b,
+            customer=self.distributor_b,
+            lines_data=[{'product': self.product, 'quantity': Decimal('120.00')}],
+        )
+        self.assertEqual(order.status, OrderStatus.SUBMITTED)
+
+        # Verify stock coverage calculates shortage of 32 packets
+        cov = order.check_stock_coverage()
+        self.assertFalse(cov['is_fully_covered'])
+        self.assertEqual(cov['total_shortage'], Decimal('32.00'))
+        self.assertEqual(cov['lines'][0]['available_stock'], Decimal('88.00'))
+        self.assertEqual(cov['lines'][0]['requested_qty'], Decimal('120.00'))
+        self.assertEqual(cov['lines'][0]['shortage'], Decimal('32.00'))
+
+        admin_client = Client()
+        admin_client.login(username='admin_user', password=self.password)
+
+        # 2. Frontend verification: approval action is disabled/blocked in UI
+        res_detail = admin_client.get(reverse('orders:order_detail', kwargs={'pk': order.pk}))
+        self.assertEqual(res_detail.status_code, 200)
+        content_detail = res_detail.content.decode()
+        self.assertIn("Approval Blocked", content_detail)
+        self.assertIn("Shortage of 32 packets", content_detail)
+        self.assertIn("Shortage: 32 pkts short!", content_detail)
+
+        # In admin orders list, approve button is disabled
+        res_list = admin_client.get(reverse('orders:admin_order_list'))
+        self.assertEqual(res_list.status_code, 200)
+        content_list = res_list.content.decode()
+        self.assertIn("Cannot approve: Insufficient stock (Shortage: 32 pkts)", content_list)
+
+        # 3. Backend validation enforcement in approve_sales_order
+        with self.assertRaises(ValidationError) as ctx:
+            approve_sales_order(order, self.admin)
+        self.assertIn("Insufficient finished-goods stock", str(ctx.exception))
+        self.assertIn("shortage of 32 packets", str(ctx.exception))
+
+        # Order must remain in Pending (SUBMITTED) status
+        order.refresh_from_db()
+        self.assertEqual(order.status, OrderStatus.SUBMITTED)
+
+        # Attempting approval via POST view must also be blocked and keep order pending
+        res_post = admin_client.post(
+            reverse('orders:admin_order_approve', kwargs={'pk': order.pk}),
+            {'approval_notes': 'Trying to force approval'},
+            follow=True
+        )
+        self.assertEqual(res_post.status_code, 200)
+        order.refresh_from_db()
+        self.assertEqual(order.status, OrderStatus.SUBMITTED)
+        content_after_post = res_post.content.decode()
+        self.assertIn("Insufficient finished-goods stock", content_after_post)
+        self.assertIn("shortage of 32 packets", content_after_post)
+
+        # 4. Invoicing and stock deduction blocked for pending/insufficient orders
+        with self.assertRaises(ValueError):
+            generate_invoice(order, user=self.admin)
+
+        inv_post = admin_client.post(
+            reverse('invoices:invoice_generate', kwargs={'order_pk': order.pk}),
+            follow=True
+        )
+        order.refresh_from_db()
+        self.assertEqual(order.status, OrderStatus.SUBMITTED)
+        self.assertFalse(hasattr(order, 'invoice') and order.invoice is not None)
+        # Verify no stock deduction happened (still exactly 88 packets)
+        self.assertEqual(get_item_current_stock(self.product), Decimal('88.00'))
+
+        # 5. Replenish stock through production: +50 packets -> 138 packets total
+        record_movement(
+            item=self.product,
+            quantity=Decimal('50.00'),
+            movement_type=MovementType.PRODUCTION_OUTPUT,
+            source_document='PR-PROD-REPLENISH-01',
+            user=self.admin,
+        )
+        self.assertEqual(get_item_current_stock(self.product), Decimal('138.00'))
+
+        # Now stock is sufficient: 138 >= 120
+        cov_after = order.check_stock_coverage()
+        self.assertTrue(cov_after['is_fully_covered'])
+        self.assertEqual(cov_after['total_shortage'], Decimal('0.00'))
+
+        # Frontend allows approval
+        res_detail_ready = admin_client.get(reverse('orders:order_detail', kwargs={'pk': order.pk}))
+        self.assertEqual(res_detail_ready.status_code, 200)
+        self.assertIn("✅ Approve Order", res_detail_ready.content.decode())
+
+        # Admin approves order successfully
+        res_approve = admin_client.post(
+            reverse('orders:admin_order_approve', kwargs={'pk': order.pk}),
+            {'approval_notes': 'Stock replenished via production, approved.'},
+            follow=True
+        )
+        self.assertEqual(res_approve.status_code, 200)
+        order.refresh_from_db()
+        self.assertEqual(order.status, OrderStatus.APPROVED)
+        self.assertEqual(order.approved_by, self.admin)
+
+        # Admin generates GST invoice normally
+        res_inv = admin_client.post(
+            reverse('invoices:invoice_generate', kwargs={'order_pk': order.pk}),
+            follow=True
+        )
+        self.assertEqual(res_inv.status_code, 200)
+        order.refresh_from_db()
+        self.assertEqual(order.status, OrderStatus.INVOICED)
+        invoice = order.invoice
+        self.assertIsNotNone(invoice)
+
+        # Admin dispatches invoice, deducting the 120 packets from stock
+        res_dispatch = admin_client.post(
+            reverse('invoices:invoice_dispatch', kwargs={'pk': invoice.pk}),
+            follow=True
+        )
+        self.assertEqual(res_dispatch.status_code, 200)
+        order.refresh_from_db()
+        self.assertEqual(order.status, OrderStatus.DISPATCHED)
+        # Remaining stock: 138 - 120 = 18 packets
+        self.assertEqual(get_item_current_stock(self.product), Decimal('18.00'))
 

@@ -87,6 +87,14 @@ def create_production_run(
         for bom_line in bom.lines.select_related('raw_material', 'packaging_item', 'unit').all():
             std_qty = (bom_line.quantity * batch_multiplier).quantize(Decimal('0.0001'))
             unit_rate = bom_line.standard_rate
+            if bom_line.raw_material:
+                current_avg = get_weighted_average_unit_cost(bom_line.raw_material)
+                if current_avg > Decimal('0'):
+                    unit_rate = current_avg
+            elif bom_line.packaging_item:
+                current_avg = get_weighted_average_unit_cost(bom_line.packaging_item)
+                if current_avg > Decimal('0'):
+                    unit_rate = current_avg
 
             ProductionRunItem.objects.create(
                 run=run,
@@ -95,7 +103,7 @@ def create_production_run(
                 unit=bom_line.unit,
                 standard_quantity=std_qty,
                 actual_quantity=std_qty,  # Defaults to standard until updated during issue
-                unit_cost=unit_rate,
+                unit_cost=unit_rate.quantize(Decimal('0.0001')),
                 notes=bom_line.notes,
             )
 
@@ -132,11 +140,11 @@ def issue_materials_for_run(
                 if item.id in lookup:
                     data = lookup[item.id]
                     if 'actual_quantity' in data:
-                        item.actual_quantity = Decimal(str(data['actual_quantity']))
+                        item.actual_quantity = Decimal(str(data['actual_quantity'])).quantize(Decimal('0.0001'))
                     if 'unit_cost' in data and data['unit_cost'] is not None and Decimal(str(data['unit_cost'])) > Decimal('0'):
-                        item.unit_cost = Decimal(str(data['unit_cost']))
+                        item.unit_cost = Decimal(str(data['unit_cost'])).quantize(Decimal('0.0001'))
                     else:
-                        item.unit_cost = get_weighted_average_unit_cost(item.raw_material, at_datetime=timezone.now())
+                        item.unit_cost = get_weighted_average_unit_cost(item.raw_material, at_datetime=timezone.now()).quantize(Decimal('0.0001'))
                     item.total_cost = (item.actual_quantity * item.unit_cost).quantize(Decimal('0.01'))
                     item.save()
         else:
